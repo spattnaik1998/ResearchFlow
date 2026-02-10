@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { results, query } = await request.json();
+    const { results } = await request.json();
 
     if (!results || !Array.isArray(results)) {
       return NextResponse.json(

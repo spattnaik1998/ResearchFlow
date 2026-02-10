@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "name": "VoiceSearch Insights",
+    "version": "1.0.0",
+    "description": "Premium audio search interface with AI-powered summaries",
+    "aesthetic": "refined-minimalism-with-audio-focus"
+  },
+  "aesthetic_direction": {
+    "concept": "Refined Minimalism meets Audio Interface Design",
+    "tone": "Premium, focused, conversational",
+    "key_principle": "Every element serves the search and audio experience"
+  },
+  "typography": {
+    "display_font": "\"Sora\", \"Inter var\", sans-serif",
+    "body_font": "\"Inter\", system-ui, sans-serif",
+    "mono_font": "\"JetBrains Mono\", monospace"
+  },
+  "colors": {
+    "primary": "#0ea5e9",
+    "secondary": "#8b5cf6",
+    "accent": "#f97316",
+    "success": "#10b981",
+    "error": "#ef4444",
+    "neutral_50": "#f9fafb",
+    "neutral_900": "#111827"
+  },
+  "components": {
+    "SearchBar": "Text input with real-time search, loading state spinner",
+    "AudioPlayer": "Play/pause, progress bar, waveform visualization, duration timer",
+    "ResultCard": "Title, description, domain, snippet, selection state",
+    "HistoryList": "Recent searches with timestamps, delete action"
+  }
+}

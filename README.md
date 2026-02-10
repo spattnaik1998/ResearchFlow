@@ -2,13 +2,17 @@
 
 Search any topic, get AI-summarized answers, and listen to them as natural speech.
 
+**[🌐 Live Demo](https://claude-autobuild-voicesearch.vercel.app)** | **[📖 Documentation](#documentation)**
+
 ## Features
 
-- 🔍 **Smart Search** - Serper integration for real-time search results
-- 🤖 **AI Summaries** - OpenAI GPT-4 for intelligent summarization
-- 🎙️ **Natural Audio** - ElevenLabs TTS for human-like voice narration
-- 📚 **Search History** - Persistent storage with Supabase
-- 🚀 **Serverless** - Built with Next.js, ready for Vercel deployment
+- 🔍 **Smart Search** - Real-time search results via Serper API
+- 🤖 **AI Summaries** - Intelligent summarization with OpenAI GPT-3.5
+- 🎙️ **Natural Audio** - Human-like text-to-speech via ElevenLabs
+- 📱 **Responsive UI** - Mobile-first design (mobile, tablet, desktop)
+- ⚡ **Fast & Smooth** - Instant API integration with smooth animations
+- 🔒 **Secure** - Branch protection, security scanning, dependency management
+- 🚀 **Serverless** - Built with Next.js, deployed on Vercel
 
 ## Tech Stack
 
@@ -37,12 +41,12 @@ Search any topic, get AI-summarized answers, and listen to them as natural speec
    ```bash
    cp .env.example .env.local
    ```
-   
+
    Edit `.env.local` with your API keys:
-   - `NEXT_PUBLIC_OPENAI_KEY` - [Get from OpenAI](https://platform.openai.com/api-keys)
+   - `OPENAI_API_KEY` - [Get from OpenAI](https://platform.openai.com/api-keys)
    - `SERPER_API_KEY` - [Get from Serper](https://serper.dev/)
    - `ELEVENLABS_API_KEY` - [Get from ElevenLabs](https://elevenlabs.io/)
-   - `SUPABASE_URL` & `SUPABASE_SERVICE_KEY` - [Get from Supabase](https://supabase.com/)
+   - `SUPABASE_URL` & `SUPABASE_SERVICE_KEY` - [Get from Supabase](https://supabase.com/) (optional)
 
 3. **Run development server**
    ```bash
@@ -156,11 +160,11 @@ See `.env.example` for all required variables. Key variables:
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
-| `NEXT_PUBLIC_OPENAI_KEY` | Yes | OpenAI API access |
-| `SERPER_API_KEY` | Yes | Google Search API |
-| `ELEVENLABS_API_KEY` | Yes | Text-to-speech |
-| `SUPABASE_URL` | Yes | Database connection |
-| `SUPABASE_SERVICE_KEY` | Yes | Database auth |
+| `OPENAI_API_KEY` | Yes | OpenAI API for summarization |
+| `SERPER_API_KEY` | Yes | Serper for search results |
+| `ELEVENLABS_API_KEY` | Yes | ElevenLabs for text-to-speech |
+| `SUPABASE_URL` | No | Supabase database (for history) |
+| `SUPABASE_SERVICE_KEY` | No | Supabase authentication |
 
 ## Testing
 
@@ -192,12 +196,71 @@ npm run format
 - Check build logs for specific errors
 - Verify Node.js version is 18+
 
+## User Interface
+
+The complete frontend includes:
+
+- **SearchInput** - Query input with validation and error messages
+- **SearchResults** - Grid of search results with titles, descriptions, and URLs
+- **SummaryCard** - AI-generated summary with key points and copy functionality
+- **AudioPlayer** - Custom HTML5 audio controls with play/pause, seek, volume, and download
+
+**Workflow:**
+1. Enter search query → Serper searches the web
+2. Display results → OpenAI generates summary
+3. Show summary with key points → ElevenLabs generates audio
+4. Play audio with custom controls
+
+## Security
+
+This project includes comprehensive security measures:
+
+- ✅ **Automated Scanning** - CodeQL, Dependabot, npm audit
+- ✅ **Dependency Management** - package-lock.json for deterministic installs
+- ✅ **Branch Protection** - Required PR reviews and passing CI checks
+- ✅ **Vulnerability Policy** - See [SECURITY.md](./SECURITY.md)
+- ✅ **Best Practices** - OWASP compliance, WCAG AA accessibility
+
+See [SECURITY.md](./SECURITY.md) for vulnerability reporting.
+
+## Documentation
+
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Developer workflow and code style
+- **[LAUNCH.md](./LAUNCH.md)** - Complete deployment procedures
+- **[SECURITY.md](./SECURITY.md)** - Security policy and vulnerability reporting
+- **[.github/BRANCH_PROTECTION.md](./.github/BRANCH_PROTECTION.md)** - Branch protection setup
+
 ## Contributing
 
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed contribution guidelines:
+
 1. Create a feature branch: `git checkout -b feature/my-feature`
-2. Commit changes: `git commit -m "feat: add my feature"`
-3. Push to GitHub: `git push origin feature/my-feature`
-4. Open a Pull Request
+2. Make changes and test locally
+3. Commit with conventional messages: `git commit -m "feat: add my feature"`
+4. Push to GitHub: `git push origin feature/my-feature`
+5. Open a Pull Request with detailed description
+
+All PRs require:
+- ✅ Passing CI checks (lint, build, tests, security audit)
+- ✅ At least one approval review
+- ✅ Up-to-date with main branch
+
+## Deployment Status
+
+✅ **Production Deployment**: https://claude-autobuild-voicesearch.vercel.app
+
+**Status Checks:**
+- ✅ Frontend UI - Complete with responsive design
+- ✅ API Integration - All three APIs integrated
+- ✅ Security Scanning - CodeQL and Dependabot active
+- ✅ CI/CD Pipeline - Automated testing and deployment
+- ✅ Branch Protection - Enabled on main branch
+
+**Post-Deployment Checklist:**
+- [ ] Verify Vercel environment variables set correctly (OPENAI_API_KEY)
+- [ ] Test complete workflow on production
+- [ ] Monitor deployment logs
+- [ ] Set up branch protection rules (see [.github/BRANCH_PROTECTION.md](./.github/BRANCH_PROTECTION.md))
 
 ## License
 
@@ -206,8 +269,9 @@ MIT License - see LICENSE file for details
 ## Support
 
 For issues and questions:
-- [GitHub Issues](https://github.com/spattnaik1998/claude-autobuild-voicesearch/issues)
-- [Documentation](./docs)
+- 🐛 [GitHub Issues](https://github.com/spattnaik1998/claude-autobuild-voicesearch/issues)
+- 📚 [Documentation](./docs)
+- 🔒 [Security](./SECURITY.md)
 
 ---
 

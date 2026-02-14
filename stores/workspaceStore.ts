@@ -16,6 +16,7 @@ interface WorkspaceState {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
   isLoading: boolean;
+  _hasHydrated: boolean;
 }
 
 interface WorkspaceActions {
@@ -48,6 +49,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       workspaces: [DEFAULT_WORKSPACE],
       activeWorkspaceId: 'default',
       isLoading: false,
+      _hasHydrated: false,
 
       createWorkspace: (name, icon = '📁', color = 'teal') => {
         const newWorkspace: Workspace = {
@@ -154,6 +156,11 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         workspaces: state.workspaces,
         activeWorkspaceId: state.activeWorkspaceId,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (state) {
+          state._hasHydrated = true;
+        }
+      },
     }
   )
 );

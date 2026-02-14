@@ -13,30 +13,57 @@ interface SearchHistoryProps {
   currentQuery?: string;
 }
 
+/**
+ * Maps workspace color to Tailwind classes for badge styling
+ */
+const getWorkspaceColorClasses = (color: string): string => {
+  const colorMap: Record<string, string> = {
+    teal: 'bg-teal-50 border-teal-200 text-teal-700 dark:bg-teal-900/20 dark:border-teal-700/50 dark:text-teal-300',
+    purple: 'bg-purple-50 border-purple-200 text-purple-700 dark:bg-purple-900/20 dark:border-purple-700/50 dark:text-purple-300',
+    blue: 'bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-700/50 dark:text-blue-300',
+    green: 'bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700/50 dark:text-green-300',
+  };
+  return colorMap[color] || colorMap.teal; // Fallback to teal
+};
+
 export function SearchHistory({
   isOpen,
   onClose,
   onSelectEntry,
   currentQuery,
 }: SearchHistoryProps) {
-  const { activeWorkspaceId } = useWorkspaceStore();
+  const { activeWorkspaceId, workspaces, _hasHydrated } = useWorkspaceStore();
+  const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
   const [groupedHistory, setGroupedHistory] = useState<Record<string, SearchHistoryEntry[]>>({});
   const [searchFilter, setSearchFilter] = useState('');
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   const loadHistory = useCallback(() => {
     try {
+      setIsLoadingHistory(true);
       const grouped = getGroupedHistory(activeWorkspaceId || 'default');
       setGroupedHistory(grouped);
     } catch (error) {
       console.error('Failed to load history:', error);
+      setGroupedHistory({});
+    } finally {
+      setIsLoadingHistory(false);
     }
   }, [activeWorkspaceId]);
 
+  // Load history immediately after workspace store hydrates
   useEffect(() => {
-    if (isOpen) {
+    if (_hasHydrated) {
       loadHistory();
     }
-  }, [isOpen, activeWorkspaceId, loadHistory]);
+  }, [_hasHydrated, activeWorkspaceId, loadHistory]);
+
+  // Refresh history when sidebar opens (in case of external updates)
+  useEffect(() => {
+    if (isOpen && _hasHydrated) {
+      loadHistory();
+    }
+  }, [isOpen, _hasHydrated, loadHistory]);
 
   const handleClearHistory = () => {
     if (window.confirm('Are you sure you want to clear all search history for this workspace?')) {
@@ -71,6 +98,7 @@ export function SearchHistory({
   );
 
   const isEmpty = Object.values(filteredGroupedHistory).every(group => group.length === 0);
+  const totalSearches = Object.values(groupedHistory).flat().length;
 
   return (
     <>
@@ -91,7 +119,8 @@ export function SearchHistory({
         <div className="h-full flex flex-col">
           {/* Header */}
           <div className="px-6 py-4 border-b border-slate-200/50 dark:border-slate-700/50">
-            <div className="flex items-center justify-between mb-4">
+            {/* Title and Close Button */}
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                 📜 History
               </h2>
@@ -106,6 +135,29 @@ export function SearchHistory({
               </button>
             </div>
 
+            {/* Workspace Indicator Badge */}
+            {activeWorkspace && (
+              <div
+                className="mb-3 flex items-center gap-2 text-sm"
+                role="status"
+                aria-label={`Viewing ${activeWorkspace.name} workspace history`}
+              >
+                <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border ${getWorkspaceColorClasses(activeWorkspace.color)}`}>
+                  <span className="text-base leading-none" aria-hidden="true">
+                    {activeWorkspace.icon}
+                  </span>
+                  <span className="font-medium">
+                    {activeWorkspace.name}
+                  </span>
+                </div>
+                <span className="text-slate-500 dark:text-slate-400">
+                  · {totalSearches === 0
+                      ? 'No searches'
+                      : `${totalSearches} ${totalSearches === 1 ? 'search' : 'searches'}`}
+                </span>
+              </div>
+            )}
+
             {/* Search Filter */}
             <input
               type="text"
@@ -118,7 +170,15 @@ export function SearchHistory({
 
           {/* Content */}
           <div className="flex-1 overflow-y-auto">
-            {isEmpty ? (
+            {!_hasHydrated || isLoadingHistory ? (
+              // Loading state while hydrating or loading
+              <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
+                <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  {!_hasHydrated ? 'Loading workspace...' : 'Loading history...'}
+                </p>
+              </div>
+            ) : isEmpty ? (
               <div className="flex flex-col items-center justify-center h-full px-6 py-12 text-center">
                 <svg
                   className="w-12 h-12 text-slate-300 dark:text-slate-600 mb-4"

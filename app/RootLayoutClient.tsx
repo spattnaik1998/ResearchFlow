@@ -10,18 +10,20 @@ import { useSearchHistory } from '@/lib/hooks';
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const [historyCount, setHistoryCount] = useState(0);
   const { getSearchHistory } = useSearchHistory();
-  const { activeWorkspaceId } = useWorkspaceStore();
+  const { activeWorkspaceId, _hasHydrated } = useWorkspaceStore();
 
   // Only access localStorage after hydration (on client side)
   // Re-calculate when workspace changes
   useEffect(() => {
+    if (!_hasHydrated) return; // Don't count until hydrated
+
     try {
       const entries = getSearchHistory();
       setHistoryCount(entries.length);
     } catch (error) {
       console.error('Failed to load history count:', error);
     }
-  }, [getSearchHistory, activeWorkspaceId]);
+  }, [getSearchHistory, activeWorkspaceId, _hasHydrated]);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({
@@ -41,6 +43,10 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     onOpenNotifications: () => {
       // Handled by page component
       window.dispatchEvent(new CustomEvent('open-notifications'));
+    },
+    onOpenKnowledge: () => {
+      // Handled by page component
+      window.dispatchEvent(new CustomEvent('open-knowledge'));
     },
   });
 

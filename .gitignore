@@ -41,3 +41,17 @@ yarn-error.log*
 Thumbs.db
 .DS_Store
 .vercel
+
+# Session documentation (keep out of git)
+DEBUGGING_*.md
+TESTING_*.md
+DEPLOYMENT_*.md
+PHASE*.md
+*_SUMMARY.md
+*_SUMMARY.txt
+*_CHECKLIST.md
+EXECUTION_SUMMARY.*
+QUICK_TEST_GUIDE.md
+GIT_PUSH_GUIDE.md
+LOCAL_SETUP_GUIDE.md
+START_TESTING.txt

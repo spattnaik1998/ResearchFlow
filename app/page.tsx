@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { SearchInput } from '@/components/SearchInput';
 import { SearchResults } from '@/components/SearchResults';
 import { SummaryCard } from '@/components/SummaryCard';
@@ -41,6 +42,7 @@ export default function Home() {
   const [knowledgeOpen, setKnowledgeOpen] = useState(false);
   const [isSavingToKnowledge, setIsSavingToKnowledge] = useState(false);
 
+  const router = useRouter();
   const { activeWorkspaceId, incrementSearchCount, workspaces } = useWorkspaceStore();
   const { success, error: showError } = useToast();
   const isFirstRender = useRef(true);
@@ -370,6 +372,16 @@ ${questionsSection}
               title="Knowledge Base (Cmd+B)"
             >
               📚
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push('/dashboard')}
+              className="transition-all duration-200"
+              aria-label="View analytics dashboard"
+              title="Analytics Dashboard"
+            >
+              📊
             </Button>
             <Button
               variant="secondary"

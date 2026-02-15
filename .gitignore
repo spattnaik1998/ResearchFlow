@@ -55,3 +55,12 @@ QUICK_TEST_GUIDE.md
 GIT_PUSH_GUIDE.md
 LOCAL_SETUP_GUIDE.md
 START_TESTING.txt
+
+# Marketing and personal content (keep locally, not in repo)
+*_POST.md
+*_SCRIPT.md
+YOUTUBE_*.md
+LINKEDIN_*.md
+
+# TypeScript build cache
+tsconfig.tsbuildinfo

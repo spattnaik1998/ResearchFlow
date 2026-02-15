@@ -18,13 +18,7 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const workspaceId = searchParams.get('workspace');
     const range = (searchParams.get('range') || '7d') as TimeRange;
-
-    if (!workspaceId) {
-      return NextResponse.json(
-        { error: 'workspace parameter is required' },
-        { status: 400 }
-      );
-    }
+    const isGlobalView = !workspaceId || workspaceId === 'all';
 
     if (!supabase) {
       return NextResponse.json(
@@ -34,6 +28,9 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch dashboard data - all queries in parallel
+    // Build queries conditionally based on whether we're viewing all workspaces or a specific one
+    const dateFilter = new Date(Date.now() - getDateRangeMS(range)).toISOString().split('T')[0];
+
     const [
       { data: dailyData, error: dailyError },
       { data: topQueries, error: topError },
@@ -41,31 +38,59 @@ export async function GET(request: NextRequest) {
       { data: hourlyData, error: hourlyError },
     ] = await Promise.all([
       // Daily trends
-      supabase
-        .from('analytics_daily_searches')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .gte('date', new Date(Date.now() - getDateRangeMS(range)).toISOString().split('T')[0])
-        .order('date', { ascending: false }),
+      (() => {
+        let query = supabase
+          .from('analytics_daily_searches')
+          .select('*');
+
+        if (!isGlobalView) {
+          query = query.eq('workspace_id', workspaceId);
+        }
+
+        return query
+          .gte('date', dateFilter)
+          .order('date', { ascending: false });
+      })(),
 
       // Top queries
-      supabase
-        .from('analytics_events')
-        .select('metadata')
-        .eq('workspace_id', workspaceId)
-        .eq('event_type', 'search')
-        .gte('created_at', `now() - interval '${range === '7d' ? '7 days' : range === '30d' ? '30 days' : '90 days'}'`)
-        .limit(100),
+      (() => {
+        let query = supabase
+          .from('analytics_events')
+          .select('metadata');
+
+        if (!isGlobalView) {
+          query = query.eq('workspace_id', workspaceId);
+        }
+
+        return query
+          .eq('event_type', 'search')
+          .gte('created_at', new Date(Date.now() - getDateRangeMS(range)).toISOString())
+          .limit(100);
+      })(),
 
       // Workspace stats
-      supabase.from('analytics_workspace_activity').select('*').eq('workspace_id', workspaceId),
+      (() => {
+        let query = supabase.from('analytics_workspace_activity').select('*');
+
+        if (!isGlobalView) {
+          query = query.eq('workspace_id', workspaceId);
+        }
+
+        return query;
+      })(),
 
       // Hourly activity
-      supabase
-        .from('analytics_hourly_activity')
-        .select('*')
-        .eq('workspace_id', workspaceId)
-        .gte('hour', `now() - interval '7 days'`),
+      (() => {
+        let query = supabase
+          .from('analytics_hourly_activity')
+          .select('*');
+
+        if (!isGlobalView) {
+          query = query.eq('workspace_id', workspaceId);
+        }
+
+        return query;
+      })(),
     ]);
 
     if (dailyError || topError || statsError || hourlyError) {
@@ -119,46 +144,132 @@ export async function GET(request: NextRequest) {
         const day = h.day_of_week;
         const hour = h.hour_of_day;
         if (!heatmapData[day]) heatmapData[day] = {};
-        heatmapData[day][hour] = h.event_count;
+        // Sum event counts when in global view (multiple workspaces)
+        heatmapData[day][hour] = (heatmapData[day][hour] || 0) + (h.event_count || 0);
       }
     }
 
     // Format daily data for charts
-    const formattedDaily = (dailyData || [])
-      .map((d: unknown) => {
-        const day = d as {
-          date: string;
-          search_count: number;
-          summary_count: number;
-          question_count: number;
-          note_create_count: number;
-          export_count: number;
-        };
+    const formattedDaily = (() => {
+      if (!dailyData || dailyData.length === 0) return [];
+
+      if (isGlobalView) {
+        // Group by date and sum across workspaces for global view
+        const dateMap = new Map<string, { searches: number; summaries: number; questions: number; notes: number; exports: number }>();
+
+        for (const d of dailyData) {
+          const day = d as unknown as {
+            date: string;
+            search_count: number;
+            summary_count: number;
+            question_count: number;
+            note_create_count: number;
+            export_count: number;
+          };
+
+          const existing = dateMap.get(day.date) || {
+            searches: 0,
+            summaries: 0,
+            questions: 0,
+            notes: 0,
+            exports: 0,
+          };
+
+          dateMap.set(day.date, {
+            searches: existing.searches + (day.search_count || 0),
+            summaries: existing.summaries + (day.summary_count || 0),
+            questions: existing.questions + (day.question_count || 0),
+            notes: existing.notes + (day.note_create_count || 0),
+            exports: existing.exports + (day.export_count || 0),
+          });
+        }
+
+        return Array.from(dateMap.values())
+          .map((trend) => ({
+            date: Array.from(dateMap.entries()).find(([, v]) => v === trend)?.[0] || '',
+            ...trend,
+          }))
+          .filter((d) => d.date)
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 30);
+      }
+
+      // Single workspace view
+      return (dailyData as unknown as Array<{
+        date: string;
+        search_count: number;
+        summary_count: number;
+        question_count: number;
+        note_create_count: number;
+        export_count: number;
+      }>)
+        .map((d) => ({
+          date: d.date,
+          searches: d.search_count || 0,
+          summaries: d.summary_count || 0,
+          questions: d.question_count || 0,
+          notes: d.note_create_count || 0,
+          exports: d.export_count || 0,
+        }))
+        .slice(0, 30);
+    })();
+
+    // Calculate summary stats
+    const summaryStats = (() => {
+      if (isGlobalView && workspaceStats && Array.isArray(workspaceStats) && workspaceStats.length > 0) {
+        // Aggregate across all workspaces
         return {
-          date: day.date,
-          searches: day.search_count || 0,
-          summaries: day.summary_count || 0,
-          questions: day.question_count || 0,
-          notes: day.note_create_count || 0,
-          exports: day.export_count || 0,
+          total_searches: workspaceStats.reduce((sum, ws: unknown) => {
+            const w = ws as { total_searches?: number };
+            return sum + (w.total_searches || 0);
+          }, 0),
+          total_summaries: workspaceStats.reduce((sum, ws: unknown) => {
+            const w = ws as { total_summaries?: number };
+            return sum + (w.total_summaries || 0);
+          }, 0),
+          total_questions: workspaceStats.reduce((sum, ws: unknown) => {
+            const w = ws as { total_questions?: number };
+            return sum + (w.total_questions || 0);
+          }, 0),
+          total_notes_created: workspaceStats.reduce((sum, ws: unknown) => {
+            const w = ws as { total_notes_created?: number };
+            return sum + (w.total_notes_created || 0);
+          }, 0),
+          active_days: Math.max(
+            ...((workspaceStats as unknown[]) || []).map((ws: unknown) => {
+              const w = ws as { active_days?: number };
+              return w.active_days || 0;
+            }),
+            0
+          ),
         };
-      })
-      .slice(0, 30);
+      }
+
+      // Single workspace view
+      const stats = (workspaceStats?.[0] as unknown as {
+        total_searches?: number;
+        total_summaries?: number;
+        total_questions?: number;
+        total_notes_created?: number;
+        active_days?: number;
+      }) || {};
+
+      return {
+        total_searches: stats.total_searches || 0,
+        total_summaries: stats.total_summaries || 0,
+        total_questions: stats.total_questions || 0,
+        total_notes_created: stats.total_notes_created || 0,
+        active_days: stats.active_days || 0,
+      };
+    })();
 
     return NextResponse.json({
       range,
       daily_trends: formattedDaily,
       top_queries: topQueriesList,
-      workspace_stats: workspaceStats?.[0] || {},
+      workspace_stats: isGlobalView ? (workspaceStats || []) : (workspaceStats?.[0] || {}),
       hourly_heatmap: heatmapData,
-      summary: {
-        total_searches: (workspaceStats?.[0] as unknown as { total_searches: number })?.total_searches || 0,
-        total_summaries: (workspaceStats?.[0] as unknown as { total_summaries: number })?.total_summaries || 0,
-        total_questions: (workspaceStats?.[0] as unknown as { total_questions: number })?.total_questions || 0,
-        total_notes_created:
-          (workspaceStats?.[0] as unknown as { total_notes_created: number })?.total_notes_created || 0,
-        active_days: (workspaceStats?.[0] as unknown as { active_days: number })?.active_days || 0,
-      },
+      summary: summaryStats,
     });
   } catch (error) {
     console.error('Dashboard analytics error:', error);

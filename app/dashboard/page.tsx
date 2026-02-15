@@ -10,6 +10,7 @@ import { DashboardStats } from '@/components/dashboard/DashboardStats';
 import { SearchTrendChart } from '@/components/dashboard/SearchTrendChart';
 import { TopQueriesTable } from '@/components/dashboard/TopQueriesTable';
 import { ActivityHeatmap } from '@/components/dashboard/ActivityHeatmap';
+import { ExportDialog } from '@/components/export/ExportDialog';
 
 interface DashboardData {
   range: '7d' | '30d' | '90d';
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+  const [exportOpen, setExportOpen] = useState(false);
 
   const { activeWorkspaceId, workspaces } = useWorkspaceStore();
   const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId);
@@ -89,7 +91,16 @@ export default function Dashboard() {
               </p>
             )}
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setExportOpen(true)}
+            >
+              📥 Export
+            </Button>
+            <ThemeToggle />
+          </div>
         </div>
       </header>
 
@@ -145,6 +156,14 @@ export default function Dashboard() {
           </div>
         ) : null}
       </main>
+
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        workspaceId={activeWorkspaceId || 'default'}
+        title="Export Analytics Data"
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
-# Contributing to VoiceSearch Insights
+# Contributing to ResearchFlow
 
-Thank you for your interest in contributing! This document outlines the process and guidelines for contributing to VoiceSearch Insights.
+Thank you for your interest in contributing! This document outlines the process and guidelines for contributing to ResearchFlow.
 
 ## Getting Started
 
@@ -197,4 +197,4 @@ Contributors are recognized in:
 - GitHub's contributors page
 - Release notes for significant contributions
 
-Thank you for making VoiceSearch Insights better! 🎉
+Thank you for making ResearchFlow better! 🎉

@@ -1,5 +1,5 @@
 /**
- * URL State Management for VoiceSearch
+ * URL State Management for ResearchFlow
  * Enables shareable URLs and deep linking
  */
 

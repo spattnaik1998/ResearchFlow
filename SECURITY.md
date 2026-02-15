@@ -2,7 +2,7 @@
 
 ## Reporting Vulnerabilities
 
-If you discover a security vulnerability in VoiceSearch Insights, please report it responsibly by emailing security@voicesearch-insights.example.com rather than using the public issue tracker.
+If you discover a security vulnerability in ResearchFlow, please report it responsibly by emailing security@researchflow.example.com rather than using the public issue tracker.
 
 **Please include the following details:**
 - A description of the vulnerability
@@ -77,8 +77,8 @@ Results are available in the GitHub Security tab.
 
 For security-related questions or concerns not related to vulnerability reporting, please reach out to:
 - GitHub Issues (non-sensitive matters)
-- Email: security@voicesearch-insights.example.com
+- Email: security@researchflow.example.com
 
 ## Acknowledgments
 
-We appreciate the security research community's help in making VoiceSearch Insights secure.
+We appreciate the security research community's help in making ResearchFlow secure.

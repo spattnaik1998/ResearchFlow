@@ -18,7 +18,7 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal';
 import { NotesLibrary } from '@/components/knowledge/NotesLibrary';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
-import { useToast } from '@/lib/hooks';
+import { useToast, logSearchEvent, logSummarizeEvent, logQuestionEvent, logNoteCreationEvent } from '@/lib/hooks';
 import type { SearchResult, SummaryResponse, QuestionsResponse, SearchHistoryEntry } from '@/types';
 import { saveSearchToHistoryDebounced } from '@/lib/storage-optimized';
 import { getSearchStateFromUrl, updateUrlWithSearchState } from '@/lib/url-state';
@@ -127,6 +127,9 @@ export default function Home() {
       const data = await response.json();
       setSearchResults(data.results);
 
+      // Log search event (fire-and-forget)
+      logSearchEvent(activeWorkspaceId || 'default', searchQuery, data.results?.length || 0, 0);
+
       // Auto-summarize (pass searchQuery since state updates are async)
       await handleSummarize(data.results, searchQuery);
     } catch (err) {
@@ -156,6 +159,9 @@ export default function Home() {
       const data = await response.json();
       setSummary(data);
 
+      // Log summarization event
+      logSummarizeEvent(activeWorkspaceId || 'default', searchQuery, data.summary?.length || 0, 0);
+
       // Auto-generate questions (pass searchQuery since state updates are async)
       await handleGenerateQuestions(searchQuery, data.summary);
     } catch (err) {
@@ -184,6 +190,9 @@ export default function Home() {
 
       const data: QuestionsResponse = await response.json();
       setQuestions(data.questions || []);
+
+      // Log question generation event
+      logQuestionEvent(activeWorkspaceId || 'default', searchQuery, data.questions?.length || 0, 0);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'Failed to generate questions'
@@ -253,6 +262,10 @@ ${questionsSection}
 
       success(`✨ Note saved to Knowledge Base`);
 
+      // Log note creation event
+      const tagCount = (query.includes('react') ? 1 : 0) + (query.includes('typescript') ? 1 : 0);
+      logNoteCreationEvent(activeWorkspaceId || 'default', newNote.id, query, tagCount);
+
       // Optionally add tags based on content
       if (query.includes('react')) await knowledgeDB.addTag(newNote.id, 'react');
       if (query.includes('typescript')) await knowledgeDB.addTag(newNote.id, 'typescript');
@@ -311,10 +324,10 @@ ${questionsSection}
           {/* Title (center) */}
           <div className="text-center flex-1 mx-4">
             <h1 className="text-5xl md:text-6xl font-bold text-slate-900 dark:text-white mb-3 transition-colors duration-300">
-              VoiceSearch Insights
+              ResearchFlow
             </h1>
             <p className="text-lg text-slate-600 dark:text-slate-300 max-w-xl mx-auto transition-colors duration-300">
-              Search any topic, get AI-powered summaries and related questions
+              Explore any topic with AI-powered research, summaries, and intelligent follow-up questions
             </p>
           </div>
 

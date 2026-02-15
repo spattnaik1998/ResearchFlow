@@ -3,8 +3,8 @@ import "./globals.css";
 import { RootLayoutClient } from "./RootLayoutClient";
 
 export const metadata: Metadata = {
-  title: "VoiceSearch Insights",
-  description: "Search, Summarize, Listen - Get AI-powered audio summaries of any topic",
+  title: "ResearchFlow",
+  description: "Search, Summarize, Explore - AI-powered research with follow-up questions and knowledge base",
 };
 
 export default function RootLayout({

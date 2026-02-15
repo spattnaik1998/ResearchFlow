@@ -1,8 +1,8 @@
-# VoiceSearch Insights 💡
+# ResearchFlow 💡
 
 Search any topic, get AI-summarized answers, and explore with AI-powered follow-up questions.
 
-**[🌐 Live Demo](https://claude-autobuild-voicesearch.vercel.app)** | **[📖 Documentation](#documentation)**
+**[🌐 Live Demo](https://researchflow.vercel.app)** | **[📖 Documentation](#documentation)**
 
 ## Features
 

@@ -1,6 +1,6 @@
 # Deployment & Launch Guide
 
-Complete checklist and procedures for deploying VoiceSearch Insights.
+Complete checklist and procedures for deploying ResearchFlow.
 
 ## Pre-Launch Checklist
 

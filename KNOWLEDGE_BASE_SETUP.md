@@ -19,7 +19,7 @@ The Knowledge Base system includes:
 1. Go to [Supabase Dashboard](https://supabase.com/dashboard)
 2. Click "New Project"
 3. Fill in project details:
-   - **Project Name**: VoiceSearch Knowledge Base
+   - **Project Name**: ResearchFlow Knowledge Base
    - **Password**: Generate a strong password
    - **Region**: Choose closest to you
    - **Pricing Plan**: Free tier is sufficient for getting started
@@ -58,7 +58,7 @@ SUPABASE_SERVICE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### Saving a Search to Knowledge Base
 
-1. Perform any search on VoiceSearch
+1. Perform any search on ResearchFlow
 2. Wait for AI summary and related questions to generate
 3. Click the **💡** button in the top right
 4. Note is automatically saved with:

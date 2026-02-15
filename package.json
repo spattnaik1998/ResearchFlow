@@ -1,8 +1,8 @@
 {
-  "name": "claude-autobuild-voicesearch",
+  "name": "researchflow",
   "version": "0.1.0",
   "private": true,
-  "description": "VoiceSearch Insights - Search, Summarize, Listen",
+  "description": "ResearchFlow - Search, Summarize, Explore",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

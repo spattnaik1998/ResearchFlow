@@ -41,7 +41,7 @@ export async function summarizeSearchResults(
           {
             role: 'system',
             content:
-              'You are a helpful assistant that summarizes search results. Provide a concise summary and extract 3-5 key points.',
+              'You are a helpful assistant that summarizes search results. Provide a comprehensive summary of 150-200 words and extract 3-5 key points.',
           },
           {
             role: 'user',
@@ -49,6 +49,7 @@ export async function summarizeSearchResults(
           },
         ],
         temperature: 0.7,
+        max_tokens: 500,
       }),
     });
 

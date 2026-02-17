@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { createSupabaseClient } from '@/lib/supabase'
-import { getAuthErrorMessage } from '@/lib/auth-helpers'
+import { getAuthErrorMessage } from '@/lib/auth-errors'
 import { emailSchema } from '@/lib/validation'
 import { Button } from '@/components/Button'
 import { LoadingSpinner } from '@/components/LoadingSpinner'

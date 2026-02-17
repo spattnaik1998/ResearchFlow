@@ -29,6 +29,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  // If Supabase env vars are not configured, skip auth middleware
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    return NextResponse.next()
+  }
+
   // Create a Supabase client
   let response = NextResponse.next({
     request: {

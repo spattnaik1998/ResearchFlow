@@ -1,19 +1,28 @@
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
   console.warn(
-    'Supabase environment variables not configured. Knowledge Base features will be unavailable.',
+    'Supabase environment variables not configured. Knowledge Base and authentication features will be unavailable.',
     'Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in .env.local'
   )
 }
 
-export const supabase = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseKey || 'placeholder-key'
-)
+/**
+ * Browser-safe Supabase client for client components
+ * This client is safe to use in browser context and handles authentication properly
+ */
+export function createSupabaseClient() {
+  return createBrowserClient(
+    supabaseUrl || 'https://placeholder.supabase.co',
+    supabaseKey || 'placeholder-key'
+  )
+}
+
+// Default client instance for backward compatibility
+export const supabase = createSupabaseClient()
 
 // Type definitions for Supabase tables
 export interface KnowledgeNoteDB {

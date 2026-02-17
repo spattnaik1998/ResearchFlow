@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getUser } from '@/lib/auth-helpers';
 
 type TimeRange = '7d' | '30d' | '90d';
 
@@ -15,6 +16,14 @@ function getDateRangeMS(range: TimeRange): number {
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const workspaceId = searchParams.get('workspace');
     const range = (searchParams.get('range') || '7d') as TimeRange;
@@ -41,7 +50,8 @@ export async function GET(request: NextRequest) {
       (() => {
         let query = supabase
           .from('analytics_daily_searches')
-          .select('*');
+          .select('*')
+          .eq('user_id', user.id);
 
         if (!isGlobalView) {
           query = query.eq('workspace_id', workspaceId);
@@ -56,7 +66,8 @@ export async function GET(request: NextRequest) {
       (() => {
         let query = supabase
           .from('analytics_events')
-          .select('metadata');
+          .select('metadata')
+          .eq('user_id', user.id);
 
         if (!isGlobalView) {
           query = query.eq('workspace_id', workspaceId);
@@ -70,7 +81,10 @@ export async function GET(request: NextRequest) {
 
       // Workspace stats
       (() => {
-        let query = supabase.from('analytics_workspace_activity').select('*');
+        let query = supabase
+          .from('analytics_workspace_activity')
+          .select('*')
+          .eq('user_id', user.id);
 
         if (!isGlobalView) {
           query = query.eq('workspace_id', workspaceId);
@@ -83,7 +97,8 @@ export async function GET(request: NextRequest) {
       (() => {
         let query = supabase
           .from('analytics_hourly_activity')
-          .select('*');
+          .select('*')
+          .eq('user_id', user.id);
 
         if (!isGlobalView) {
           query = query.eq('workspace_id', workspaceId);

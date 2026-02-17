@@ -155,6 +155,50 @@ ResearchFlow is not a ChatGPT wrapper—it's a complete research platform design
 
    The Knowledge Base requires Supabase. See [KNOWLEDGE_BASE_SETUP.md](KNOWLEDGE_BASE_SETUP.md) for detailed instructions on creating the database schema.
 
+### Authentication Setup
+
+ResearchFlow now includes a complete authentication system with user accounts and workspace ownership. To enable authentication:
+
+1. **Create a Supabase project** (if not already done)
+   - Go to [supabase.com](https://supabase.com) and create a new project
+   - Note your project URL and API keys
+
+2. **Configure authentication in Supabase**
+   - Go to **Authentication → Providers** and enable Email/Password
+   - Go to **Authentication → URL Configuration** and set:
+     ```
+     Site URL: http://localhost:3005 (development)
+                https://your-app.vercel.app (production)
+
+     Redirect URLs:
+     http://localhost:3005/auth/callback
+     https://your-app.vercel.app/auth/callback
+     https://*.vercel.app/auth/callback
+     ```
+
+3. **Run database migration**
+   - Execute the SQL migration script in Supabase SQL editor:
+     ```sql
+     -- See: supabase/migrations/003_authentication_system.sql
+     ```
+
+4. **Update environment variables**
+   ```env
+   NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
+   SUPABASE_SERVICE_KEY=eyJhbG...
+   ```
+
+**Features enabled with authentication:**
+- User registration and email verification
+- Secure login/logout with session management
+- Protected API routes (all endpoints require authentication)
+- Per-user workspace isolation
+- Automatic data migration from localStorage on first login
+- Row-level security (RLS) on all user data
+
+See [LAUNCH.md](LAUNCH.md) for full deployment instructions.
+
 ## Project Structure
 
 ```

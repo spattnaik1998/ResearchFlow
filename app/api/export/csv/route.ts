@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getUser } from '@/lib/auth-helpers';
 import { formatNotesAsCSV, formatAnalyticsAsCSV, type AnalyticsRow } from '@/lib/export-formatters';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { workspace_id, export_type } = await request.json();
 
     if (!workspace_id) {
@@ -38,6 +47,7 @@ export async function POST(request: NextRequest) {
         `
         )
         .eq('workspace_id', workspace_id)
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -61,6 +71,7 @@ export async function POST(request: NextRequest) {
         .from('analytics_events')
         .select('*')
         .eq('workspace_id', workspace_id)
+        .eq('user_id', user.id)
         .eq('event_type', 'search')
         .order('created_at', { ascending: false })
         .limit(1000);

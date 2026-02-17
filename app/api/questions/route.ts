@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getUser } from '@/lib/auth-helpers';
 
 /**
  * Extract JSON from markdown code blocks or raw JSON string
@@ -16,6 +17,14 @@ function extractJSON(content: string): string {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { query, summary } = await request.json();
 
     // Validation

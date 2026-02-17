@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { workspace_id, event_type, event_category, metadata } = await request.json();
 
     // Validate required fields
@@ -29,6 +38,7 @@ export async function POST(request: NextRequest) {
         event_type,
         event_category,
         metadata: metadata || {},
+        user_id: user.id,
       });
 
     if (error) {

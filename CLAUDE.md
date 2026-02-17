@@ -60,12 +60,28 @@ When testing, always open: **http://localhost:3005**
 - **Global Styles**: `/app/globals.css` - Tailwind + custom CSS
 
 ### API Routes (Next.js)
+
+**Protected Routes** (all require authentication):
 ```
 /app/api/
-├── search/route.ts       - Serper API integration
-├── summarize/route.ts    - OpenAI summarization
-└── questions/route.ts    - AI-powered related questions
+├── search/route.ts              - Serper API integration (protected)
+├── summarize/route.ts           - OpenAI summarization (protected)
+├── questions/route.ts           - AI-powered related questions (protected)
+├── analytics/
+│   ├── log/route.ts             - Log analytics events (protected)
+│   └── dashboard/route.ts       - Fetch analytics data (protected)
+├── export/
+│   ├── markdown/route.ts        - Export notes as Markdown (protected)
+│   ├── csv/route.ts             - Export as CSV (protected)
+│   └── pdf/route.ts             - Export as HTML/PDF (protected)
+└── auth/
+    ├── callback/route.ts        - OAuth callback handler
+    └── logout/route.ts          - Logout endpoint
 ```
+
+**Authentication**: All API routes are protected with Supabase Auth. Requests must include valid authentication cookies.
+- Server-side check: `const user = await getUser()` in `lib/auth-helpers.ts`
+- Returns 401 Unauthorized if no valid session
 
 ### State Management
 - **Location**: `/stores/`
@@ -103,13 +119,22 @@ When testing, always open: **http://localhost:3005**
   - `hooks.ts` - Custom React hooks
 
 ### Database
-- **Service**: Supabase (PostgreSQL)
-- **Setup**: See `KNOWLEDGE_BASE_SETUP.md`
-- **Tables**:
-  - `knowledge_notes` - Saved research notes
-  - `note_tags` - Tag categorization
-  - `note_links` - Bidirectional linking (future)
-  - `collections` - Note organization (future)
+- **Service**: Supabase (PostgreSQL with Row-Level Security)
+- **Setup**: See `KNOWLEDGE_BASE_SETUP.md` and migration scripts in `supabase/migrations/`
+
+**Core Tables**:
+- `user_workspaces` - User-owned workspaces (created on first login)
+- `knowledge_notes` - Saved research notes (per-user, per-workspace)
+- `note_tags` - Tag categorization for notes
+- `analytics_events` - Raw event tracking (per-user)
+- `analytics_daily_searches` - Aggregated daily metrics (per-user)
+- `analytics_workspace_activity` - Workspace-level statistics (per-user)
+- `analytics_hourly_activity` - Hourly activity heatmap data (per-user)
+
+**Future Tables**:
+- `note_links` - Bidirectional note linking
+- `collections` - Note organization and grouping
+- `shared_workspaces` - Workspace sharing and collaboration
 
 ## Features Overview
 
@@ -152,20 +177,28 @@ Required for local development:
 OPENAI_API_KEY=sk-proj-...                    # From https://platform.openai.com/api-keys
 SERPER_API_KEY=...                             # From https://serper.dev/
 
-# Knowledge Base (Optional)
+# Authentication & Database (Required)
 NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
-SUPABASE_SERVICE_KEY=...
+SUPABASE_SERVICE_KEY=eyJhbG...                # For server-side operations
 
 # Optional
 OPENAI_MODEL=gpt-3.5-turbo                     # Or gpt-4, gpt-4-turbo, etc.
 NEXT_PUBLIC_APP_URL=http://localhost:3005
 ```
 
-Copy `.env.example` and fill in your keys:
-```bash
-cp .env.example .env.local
-```
+**Setup Instructions:**
+1. Create a Supabase project at https://supabase.com
+2. Get your credentials from **Settings → API → Project API Keys**
+3. Copy `.env.example` and fill in your keys:
+   ```bash
+   cp .env.example .env.local
+   ```
+4. Run the authentication migration:
+   ```sql
+   -- In Supabase SQL Editor:
+   -- Execute: supabase/migrations/003_authentication_system.sql
+   ```
 
 ## Common Commands
 

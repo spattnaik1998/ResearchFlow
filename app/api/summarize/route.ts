@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { summarizeSearchResults } from '@/lib/openai';
+import { getUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { results } = await request.json();
 
     if (!results || !Array.isArray(results)) {

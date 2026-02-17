@@ -1,9 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { getUser } from '@/lib/auth-helpers';
 import { formatNotesAsMarkdown, type ExportableNote } from '@/lib/export-formatters';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { workspace_id, note_ids, include_timestamps } = await request.json();
 
     if (!workspace_id) {
@@ -33,7 +42,8 @@ export async function POST(request: NextRequest) {
         note_tags:note_tags(tag)
       `
       )
-      .eq('workspace_id', workspace_id);
+      .eq('workspace_id', workspace_id)
+      .eq('user_id', user.id);
 
     if (note_ids && note_ids.length > 0) {
       query = query.in('id', note_ids);

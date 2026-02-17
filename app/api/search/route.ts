@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchWithSerper } from '@/lib/serper';
+import { getUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { query } = await request.json();
 
     if (!query || query.trim().length === 0) {

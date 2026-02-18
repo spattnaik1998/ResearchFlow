@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createSupabaseClient } from '@/lib/supabase'
+import { createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase'
 import { getAuthErrorMessage } from '@/lib/auth-errors'
 import { loginSchema } from '@/lib/validation'
 import { Button } from '@/components/Button'
@@ -23,6 +23,13 @@ export function LoginForm() {
     setError(null)
     setSuccess(null)
     setIsLoading(true)
+
+    // Guard against missing Supabase configuration
+    if (!isSupabaseConfigured) {
+      setError('Authentication is not configured yet. Please try again in a few minutes.')
+      setIsLoading(false)
+      return
+    }
 
     try {
       const supabase = createSupabaseClient()

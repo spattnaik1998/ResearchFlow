@@ -11,6 +11,16 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 /**
+ * Check if Supabase is properly configured
+ * Returns false if using placeholder values or missing credentials
+ */
+export const isSupabaseConfigured =
+  !!supabaseUrl &&
+  supabaseUrl !== 'https://placeholder.supabase.co' &&
+  !!supabaseKey &&
+  supabaseKey !== 'placeholder-key'
+
+/**
  * Browser-safe Supabase client for client components
  * This client is safe to use in browser context and handles authentication properly
  */

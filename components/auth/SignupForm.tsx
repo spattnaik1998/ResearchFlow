@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createSupabaseClient } from '@/lib/supabase'
+import { createSupabaseClient, isSupabaseConfigured } from '@/lib/supabase'
 import { getAuthErrorMessage } from '@/lib/auth-errors'
 import { signupSchema } from '@/lib/validation'
 import { Button } from '@/components/Button'
@@ -25,6 +25,13 @@ export function SignupForm() {
     setError(null)
     setValidationErrors({})
     setIsLoading(true)
+
+    // Guard against missing Supabase configuration
+    if (!isSupabaseConfigured) {
+      setError('Authentication is not configured yet. Please try again in a few minutes.')
+      setIsLoading(false)
+      return
+    }
 
     // Validate with Zod
     const validation = signupSchema.safeParse({

@@ -3,6 +3,11 @@
  * This can be used in client components
  */
 export function getAuthErrorMessage(error: unknown): string {
+  // Handle network/fetch errors (e.g., configuration issues, DNS failures)
+  if (error instanceof TypeError && error.message === 'Failed to fetch') {
+    return 'Unable to reach the authentication service. Please try again in a moment.'
+  }
+
   if (error instanceof Error) {
     const message = error.message.toLowerCase()
 

@@ -31,7 +31,48 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     }
   }, [getSearchHistory, activeWorkspaceId, _hasHydrated]);
 
-  // Listen for auth state changes and trigger migration on login
+  // Initialize user from current session on mount
+  useEffect(() => {
+    const supabase = createSupabaseClient();
+
+    // Check current session first
+    const initializeUser = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email || '',
+            name: session.user.user_metadata?.name,
+            avatar_url: session.user.user_metadata?.avatar_url,
+          });
+
+          // Trigger migration if needed
+          if (!isMigrationComplete(session.user.id)) {
+            try {
+              await migrateUserData(session.user.id, workspaces);
+              showToast({
+                type: 'success',
+                title: 'Workspace data synced to cloud!',
+              });
+            } catch (error) {
+              console.error('Migration failed:', error);
+              showToast({
+                type: 'error',
+                title: 'Failed to sync workspace data',
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Failed to initialize user:', error);
+      }
+    };
+
+    initializeUser();
+  }, [setUser, workspaces, showToast]);
+
+  // Listen for auth state changes
   useEffect(() => {
     const supabase = createSupabaseClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

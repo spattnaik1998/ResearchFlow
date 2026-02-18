@@ -19,11 +19,13 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { KeyboardShortcutsModal } from '@/components/KeyboardShortcutsModal';
 import { NotesLibrary } from '@/components/knowledge/NotesLibrary';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useAuthStore } from '@/stores/authStore';
 import { useToast, logSearchEvent, logSummarizeEvent, logQuestionEvent, logNoteCreationEvent } from '@/lib/hooks';
 import type { SearchResult, SummaryResponse, QuestionsResponse, SearchHistoryEntry } from '@/types';
 import { saveSearchToHistoryDebounced } from '@/lib/storage-optimized';
 import { getSearchStateFromUrl, updateUrlWithSearchState } from '@/lib/url-state';
 import { knowledgeDB } from '@/lib/knowledge-db';
+import { saveHistoryEntry } from '@/lib/history-db';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'results' | 'summary' | 'questions'>('results');
@@ -44,8 +46,23 @@ export default function Home() {
 
   const router = useRouter();
   const { activeWorkspaceId, incrementSearchCount, workspaces } = useWorkspaceStore();
+  const { user } = useAuthStore();
   const { success, error: showError } = useToast();
   const isFirstRender = useRef(true);
+
+  // Helper to handle API responses and redirect on 401
+  const handleApiResponse = async (response: Response, operation: string) => {
+    if (response.status === 401) {
+      showError('Session expired. Please log in again.');
+      router.push('/auth/login');
+      return null;
+    }
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `${operation} failed`);
+    }
+    return response;
+  };
 
   // Handle keyboard shortcuts for opening modals
   useEffect(() => {
@@ -122,11 +139,17 @@ export default function Home() {
       };
 
       saveSearchToHistoryDebounced(entry, activeWorkspaceId || 'default');
+
+      // Dual-write: Also save to Supabase (fire-and-forget)
+      if (user?.id) {
+        saveHistoryEntry(entry, user.id);
+      }
+
       incrementSearchCount(activeWorkspaceId || 'default');
       success(`Search saved to ${activeWorkspaceId === 'default' ? 'Personal' : 'workspace'}`);
       updateUrlWithSearchState({ query });
     }
-  }, [searchResults, summary, questions, query, activeWorkspaceId, incrementSearchCount, success]);
+  }, [searchResults, summary, questions, query, activeWorkspaceId, incrementSearchCount, success, user]);
 
   const handleSearch = async (searchQuery: string) => {
     setError(null);
@@ -141,12 +164,10 @@ export default function Home() {
         body: JSON.stringify({ query: searchQuery }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Search failed');
-      }
+      const validResponse = await handleApiResponse(response, 'Search');
+      if (!validResponse) return;
 
-      const data = await response.json();
+      const data = await validResponse.json();
       setSearchResults(data.results);
 
       // Log search event (fire-and-forget)
@@ -173,12 +194,10 @@ export default function Home() {
         body: JSON.stringify({ results }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Summarization failed');
-      }
+      const validResponse = await handleApiResponse(response, 'Summarization');
+      if (!validResponse) return;
 
-      const data = await response.json();
+      const data = await validResponse.json();
       setSummary(data);
 
       // Log summarization event
@@ -205,12 +224,10 @@ export default function Home() {
         body: JSON.stringify({ query: searchQuery, summary: summaryText }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Questions generation failed');
-      }
+      const validResponse = await handleApiResponse(response, 'Questions generation');
+      if (!validResponse) return;
 
-      const data: QuestionsResponse = await response.json();
+      const data: QuestionsResponse = await validResponse.json();
       setQuestions(data.questions || []);
 
       // Log question generation event

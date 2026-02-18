@@ -1,7 +1,9 @@
 'use client'
 
 import { createSupabaseClient } from '@/lib/supabase'
+import { loadAllHistory } from '@/lib/history-db'
 import type { Workspace } from '@/stores/workspaceStore'
+import type { SearchHistoryEntry } from '@/types'
 
 /**
  * Check if data migration has already been completed for this user
@@ -71,11 +73,60 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
       }
     }
 
-    // Step 3: Mark migration as complete
+    // Step 3: Load search history from Supabase and merge with localStorage
+    await migrateSearchHistory(userId, workspaces)
+
+    // Step 4: Mark migration as complete
     localStorage.setItem(`migration_complete_${userId}`, 'true')
     console.log('Data migration completed successfully for user', userId)
   } catch (error) {
     console.error('Data migration error:', error)
     throw error
+  }
+}
+
+/**
+ * Helper: Migrate search history from Supabase to localStorage
+ * Fetches cloud history for each workspace and merges with existing localStorage entries
+ */
+async function migrateSearchHistory(userId: string, workspaces: Workspace[]): Promise<void> {
+  try {
+    // Load all cloud history for the user (grouped by workspace)
+    const cloudHistoryMap = await loadAllHistory(userId)
+
+    if (cloudHistoryMap.size === 0) {
+      console.log('No cloud history to migrate')
+      return
+    }
+
+    // For each workspace, merge cloud history with localStorage
+    workspaces.forEach((workspace) => {
+      const wsId = workspace.id
+      const cloudEntries = cloudHistoryMap.get(wsId) || []
+
+      if (cloudEntries.length === 0) return
+
+      // Load existing localStorage history
+      const historyKey = `voicesearch_history_${wsId}`
+      const localStorageJson = localStorage.getItem(historyKey)
+      const localEntries: SearchHistoryEntry[] = localStorageJson ? JSON.parse(localStorageJson) : []
+
+      // Create a set of existing IDs for fast lookup
+      const existingIds = new Set(localEntries.map((e) => e.id))
+
+      // Merge: add cloud entries that don't already exist in localStorage
+      const mergedEntries = [...cloudEntries.filter((e) => !existingIds.has(e.id)), ...localEntries]
+
+      // Sort by timestamp descending and keep only the most recent 100
+      mergedEntries.sort((a, b) => b.timestamp - a.timestamp)
+      const finalEntries = mergedEntries.slice(0, 100)
+
+      // Write back to localStorage
+      localStorage.setItem(historyKey, JSON.stringify(finalEntries))
+      console.log(`Migrated ${cloudEntries.length} history entry(ies) for workspace ${wsId}`)
+    })
+  } catch (error) {
+    console.error('Error migrating search history:', error)
+    // Non-blocking error - don't throw
   }
 }

@@ -50,13 +50,16 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
+          // 1. Mutate request cookies (so the route handler sees all updated cookies)
+          cookiesToSet.forEach(({ name, value }) => {
             request.cookies.set(name, value)
-            response = NextResponse.next({
-              request: {
-                headers: request.headers,
-              },
-            })
+          })
+          // 2. Create ONE response with the fully-updated request headers
+          response = NextResponse.next({
+            request: { headers: request.headers },
+          })
+          // 3. Set ALL cookies on that single response (browser gets all of them)
+          cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options)
           })
         },

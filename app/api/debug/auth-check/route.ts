@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 import { getUser } from '@/lib/auth-helpers'
 import { cookies } from 'next/headers'
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const hasAnonKey = !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   const hasServiceKey = !!process.env.SUPABASE_SERVICE_KEY

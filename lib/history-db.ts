@@ -1,7 +1,7 @@
 'use client'
 
 import { createSupabaseClient } from '@/lib/supabase'
-import type { SearchHistoryEntry, SearchResult, SummaryResponse } from '@/types'
+import type { SearchHistoryEntry } from '@/types'
 
 /**
  * Database utility for search history persistence

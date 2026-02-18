@@ -77,10 +77,15 @@ export default function ProfilePage() {
   }
 
   async function handleLogout() {
-    const supabase = createSupabaseClient();
-    await supabase.auth.signOut();
-    logout();
-    router.push('/auth/login');
+    try {
+      const supabase = createSupabaseClient();
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Sign out error:', error);
+    } finally {
+      logout();
+      router.push('/auth/login');
+    }
   }
 
   return (

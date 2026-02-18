@@ -28,11 +28,16 @@ export function UserMenu() {
   if (!user) return null
 
   async function handleLogout() {
-    const supabase = createSupabaseClient()
-    await supabase.auth.signOut()
-    logout()
-    setIsOpen(false)
-    router.push('/auth/login')
+    try {
+      const supabase = createSupabaseClient()
+      await supabase.auth.signOut()
+    } catch (error) {
+      console.error('Sign out error:', error)
+    } finally {
+      logout()
+      setIsOpen(false)
+      router.push('/auth/login')
+    }
   }
 
   const avatar = user.name?.charAt(0).toUpperCase() || user.email.charAt(0).toUpperCase() || '?'

@@ -35,6 +35,7 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
     // Step 1: Insert workspaces into user_workspaces
     if (workspaces.length > 0) {
       const workspacesToInsert = workspaces.map((ws) => ({
+        id: ws.id,
         user_id: userId,
         name: ws.name,
         icon: ws.icon,
@@ -46,7 +47,7 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
 
       const { error: workspaceError } = await supabase
         .from('user_workspaces')
-        .insert(workspacesToInsert)
+        .upsert(workspacesToInsert, { onConflict: 'id' })
 
       if (workspaceError) {
         console.error('Failed to migrate workspaces:', workspaceError)
@@ -57,15 +58,17 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
     }
 
     // Step 2: Update orphaned knowledge_notes to be associated with user
-    const { error: notesError } = await supabase
-      .from('knowledge_notes')
-      .update({ user_id: userId })
-      .is('user_id', null)
-      .in('workspace_id', workspaces.map((ws) => ws.id))
+    if (workspaces.length > 0) {
+      const { error: notesError } = await supabase
+        .from('knowledge_notes')
+        .update({ user_id: userId })
+        .is('user_id', null)
+        .in('workspace_id', workspaces.map((ws) => ws.id))
 
-    if (notesError) {
-      console.error('Failed to update notes with user_id:', notesError)
-      throw new Error(`Notes migration failed: ${notesError.message}`)
+      if (notesError) {
+        console.error('Failed to update notes with user_id:', notesError)
+        throw new Error(`Notes migration failed: ${notesError.message}`)
+      }
     }
 
     // Step 3: Mark migration as complete

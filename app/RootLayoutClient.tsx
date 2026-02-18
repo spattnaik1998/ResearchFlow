@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useKeyboardShortcuts } from '@/lib/hooks';
@@ -17,6 +17,28 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const { activeWorkspaceId, _hasHydrated, workspaces } = useWorkspaceStore();
   const { setUser, logout } = useAuthStore();
   const { showToast } = useNotificationStore();
+  const migrationRunningRef = useRef(false);
+
+  // Helper to run migration only once, preventing concurrent/duplicate calls
+  const runMigrationOnce = useCallback(async (userId: string) => {
+    if (migrationRunningRef.current || isMigrationComplete(userId)) return;
+    migrationRunningRef.current = true;
+    try {
+      await migrateUserData(userId, workspaces);
+      showToast({
+        type: 'success',
+        title: 'Workspace data synced to cloud!',
+      });
+    } catch (error) {
+      console.error('Migration failed:', error);
+      showToast({
+        type: 'error',
+        title: 'Failed to sync workspace data',
+      });
+    } finally {
+      migrationRunningRef.current = false;
+    }
+  }, [workspaces, showToast]);
 
   // Only access localStorage after hydration (on client side)
   // Re-calculate when workspace changes
@@ -48,21 +70,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
           });
 
           // Trigger migration if needed
-          if (!isMigrationComplete(session.user.id)) {
-            try {
-              await migrateUserData(session.user.id, workspaces);
-              showToast({
-                type: 'success',
-                title: 'Workspace data synced to cloud!',
-              });
-            } catch (error) {
-              console.error('Migration failed:', error);
-              showToast({
-                type: 'error',
-                title: 'Failed to sync workspace data',
-              });
-            }
-          }
+          await runMigrationOnce(session.user.id);
         }
       } catch (error) {
         console.error('Failed to initialize user:', error);
@@ -70,7 +78,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     };
 
     initializeUser();
-  }, [setUser, workspaces, showToast]);
+  }, [setUser, runMigrationOnce]);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -86,21 +94,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
           });
 
           // Trigger migration on first login
-          if (!isMigrationComplete(session.user.id)) {
-            try {
-              await migrateUserData(session.user.id, workspaces);
-              showToast({
-                type: 'success',
-                title: 'Workspace data synced to cloud!',
-              });
-            } catch (error) {
-              console.error('Migration failed:', error);
-              showToast({
-                type: 'error',
-                title: 'Failed to sync workspace data',
-              });
-            }
-          }
+          await runMigrationOnce(session.user.id);
         } else if (event === 'SIGNED_OUT') {
           logout();
         }
@@ -108,7 +102,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription?.unsubscribe();
-  }, [setUser, logout, workspaces, showToast]);
+  }, [setUser, logout, runMigrationOnce]);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({

@@ -200,12 +200,13 @@ export default function Home() {
       const data = await validResponse.json();
       setSummary(data);
 
-      // Log summarization event
-      logSummarizeEvent(activeWorkspaceId || 'default', searchQuery, data.summary?.length || 0, 0);
+      // Log summarization event (fire-and-forget)
+      void logSummarizeEvent(activeWorkspaceId || 'default', searchQuery, data.summary?.length || 0, 0);
 
       // Auto-generate questions (pass searchQuery since state updates are async)
       await handleGenerateQuestions(searchQuery, data.summary);
     } catch (err) {
+      console.error('[Summarize Error]', err);
       setError(
         err instanceof Error ? err.message : 'Failed to summarize results'
       );

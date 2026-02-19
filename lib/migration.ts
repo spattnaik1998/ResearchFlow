@@ -86,10 +86,109 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
 }
 
 /**
+ * Upsert a single workspace to Supabase (for ongoing sync after initial migration)
+ * Fire-and-forget operation - does not block workspace creation
+ */
+export async function upsertWorkspaceToCloud(workspace: Workspace, userId: string): Promise<void> {
+  try {
+    const supabase = createSupabaseClient()
+
+    const dbWorkspace = {
+      id: workspace.id,
+      user_id: userId,
+      name: workspace.name,
+      icon: workspace.icon,
+      color: workspace.color,
+      is_favorite: workspace.isFavorite || false,
+      is_archived: workspace.isArchived || false,
+      created_at: new Date(workspace.createdAt).toISOString(),
+    }
+
+    const { error } = await supabase
+      .from('user_workspaces')
+      .upsert(dbWorkspace, { onConflict: 'id' })
+
+    if (error) {
+      console.error('Failed to save workspace to cloud:', error)
+      // Non-blocking - don't throw
+    }
+  } catch (error) {
+    console.error('Error upserting workspace to cloud:', error)
+    // Non-blocking - don't throw
+  }
+}
+
+/**
+ * Upsert a workspace to Supabase for the current logged-in user
+ * Gets the current user session first, then syncs the workspace
+ * Fire-and-forget operation
+ */
+export async function upsertWorkspaceToCloudForCurrentUser(workspace: Workspace): Promise<void> {
+  try {
+    const supabase = createSupabaseClient()
+    const { data: { session } } = await supabase.auth.getSession()
+
+    if (!session?.user) {
+      console.warn('No authenticated user session available for workspace sync')
+      return
+    }
+
+    await upsertWorkspaceToCloud(workspace, session.user.id)
+  } catch (error) {
+    console.error('Error upserting workspace for current user:', error)
+    // Non-blocking - don't throw
+  }
+}
+
+/**
+ * Load all user data from Supabase on login.
+ * Runs on EVERY login — NOT gated by migration_complete flag.
+ * Returns cloud workspaces so caller can merge them into Zustand store.
+ */
+export async function loadCloudDataOnLogin(userId: string): Promise<Workspace[]> {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const supabase = createSupabaseClient()
+
+    const { data, error } = await supabase
+      .from('user_workspaces')
+      .select('id, user_id, name, icon, color, is_favorite, is_archived, search_count, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: true })
+
+    if (error) {
+      console.error('Failed to load workspaces from cloud:', error)
+      return []
+    }
+    if (!data || data.length === 0) return []
+
+    const cloudWorkspaces: Workspace[] = data.map((row) => ({
+      id: row.id,
+      name: row.name,
+      icon: row.icon,
+      color: (row.color as Workspace['color']) || 'teal',
+      createdAt: new Date(row.created_at).getTime(),
+      isFavorite: row.is_favorite ?? false,
+      isArchived: row.is_archived ?? false,
+      searchCount: row.search_count ?? 0,
+    }))
+
+    // Load search history for all cloud workspaces → merge into localStorage
+    await migrateSearchHistory(userId, cloudWorkspaces)
+
+    return cloudWorkspaces
+  } catch (error) {
+    console.error('Error loading cloud data on login:', error)
+    return []
+  }
+}
+
+/**
  * Helper: Migrate search history from Supabase to localStorage
  * Fetches cloud history for each workspace and merges with existing localStorage entries
  */
-async function migrateSearchHistory(userId: string, workspaces: Workspace[]): Promise<void> {
+export async function migrateSearchHistory(userId: string, workspaces: Workspace[]): Promise<void> {
   try {
     // Load all cloud history for the user (grouped by workspace)
     const cloudHistoryMap = await loadAllHistory(userId)

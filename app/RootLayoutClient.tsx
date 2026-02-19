@@ -9,15 +9,16 @@ import { ToastStack } from '@/components/ToastStack';
 import { useSearchHistory } from '@/lib/hooks';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { createSupabaseClient } from '@/lib/supabase';
-import { migrateUserData, isMigrationComplete } from '@/lib/migration';
+import { migrateUserData, isMigrationComplete, loadCloudDataOnLogin } from '@/lib/migration';
 
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const [historyCount, setHistoryCount] = useState(0);
   const { getSearchHistory } = useSearchHistory();
-  const { activeWorkspaceId, _hasHydrated, workspaces } = useWorkspaceStore();
+  const { activeWorkspaceId, _hasHydrated, workspaces, mergeCloudWorkspaces } = useWorkspaceStore();
   const { setUser, logout } = useAuthStore();
   const { showToast } = useNotificationStore();
   const migrationRunningRef = useRef(false);
+  const cloudLoadRunningRef = useRef(false);
 
   // Helper to run migration only once, preventing concurrent/duplicate calls
   const runMigrationOnce = useCallback(async (userId: string) => {
@@ -39,6 +40,22 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
       migrationRunningRef.current = false;
     }
   }, [workspaces, showToast]);
+
+  // Load cloud data on login (runs every login, not gated by migration flag)
+  const loadCloudData = useCallback(async (userId: string) => {
+    if (cloudLoadRunningRef.current) return;
+    cloudLoadRunningRef.current = true;
+    try {
+      const cloudWorkspaces = await loadCloudDataOnLogin(userId);
+      if (cloudWorkspaces.length > 0) {
+        mergeCloudWorkspaces(cloudWorkspaces);
+      }
+    } catch (error) {
+      console.error('Cloud data load failed:', error);
+    } finally {
+      cloudLoadRunningRef.current = false;
+    }
+  }, [mergeCloudWorkspaces]);
 
   // Only access localStorage after hydration (on client side)
   // Re-calculate when workspace changes
@@ -69,8 +86,13 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
             avatar_url: session.user.user_metadata?.avatar_url,
           });
 
-          // Trigger migration if needed
-          await runMigrationOnce(session.user.id);
+          // Only trigger migration and cloud load after Zustand has hydrated from localStorage
+          if (_hasHydrated) {
+            await Promise.all([
+              runMigrationOnce(session.user.id),
+              loadCloudData(session.user.id),
+            ]);
+          }
         }
       } catch (error) {
         console.error('Failed to initialize user:', error);
@@ -78,7 +100,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     };
 
     initializeUser();
-  }, [setUser, runMigrationOnce]);
+  }, [setUser, runMigrationOnce, loadCloudData, _hasHydrated]);
 
   // Listen for auth state changes
   useEffect(() => {
@@ -93,8 +115,13 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
             avatar_url: session.user.user_metadata?.avatar_url,
           });
 
-          // Trigger migration on first login
-          await runMigrationOnce(session.user.id);
+          // Only trigger migration and cloud load after Zustand has hydrated from localStorage
+          if (_hasHydrated) {
+            await Promise.all([
+              runMigrationOnce(session.user.id),
+              loadCloudData(session.user.id),
+            ]);
+          }
         } else if (event === 'SIGNED_OUT') {
           logout();
         }
@@ -102,7 +129,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     );
 
     return () => subscription?.unsubscribe();
-  }, [setUser, logout, runMigrationOnce]);
+  }, [setUser, logout, runMigrationOnce, loadCloudData, _hasHydrated]);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({

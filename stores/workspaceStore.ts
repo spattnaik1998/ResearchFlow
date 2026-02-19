@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { upsertWorkspaceToCloudForCurrentUser } from '@/lib/migration';
 
 export interface Workspace {
   id: string;
@@ -28,6 +29,7 @@ interface WorkspaceActions {
   toggleArchive: (id: string) => void;
   incrementSearchCount: (id: string) => void;
   getActiveWorkspace: () => Workspace | null;
+  mergeCloudWorkspaces: (cloudWorkspaces: Workspace[]) => void;
 }
 
 type WorkspaceStore = WorkspaceState & WorkspaceActions;
@@ -66,6 +68,12 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           workspaces: [...state.workspaces, newWorkspace],
           activeWorkspaceId: newWorkspace.id,
         }));
+
+        // Sync new workspace to Supabase (fire-and-forget)
+        upsertWorkspaceToCloudForCurrentUser(newWorkspace).catch(() => {
+          // Silently handle errors - local workspace was created successfully
+          // Cloud sync is best-effort
+        });
       },
 
       deleteWorkspace: (id) => {
@@ -148,6 +156,42 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       getActiveWorkspace: () => {
         const state = get();
         return state.workspaces.find((ws) => ws.id === state.activeWorkspaceId) || null;
+      },
+
+      mergeCloudWorkspaces: (cloudWorkspaces: Workspace[]) => {
+        if (cloudWorkspaces.length === 0) return;
+        set((state) => {
+          // Build lookup map of cloud workspaces by ID
+          const cloudById = new Map<string, Workspace>(
+            cloudWorkspaces.map((ws) => [ws.id, ws])
+          );
+
+          // Start with local workspaces — cloud wins if IDs overlap
+          const mergedMap = new Map<string, Workspace>();
+          for (const local of state.workspaces) {
+            const cloud = cloudById.get(local.id);
+            mergedMap.set(local.id, cloud ? { ...local, ...cloud } : local);
+          }
+          // Add cloud-only workspaces (not present locally)
+          for (const cloud of cloudWorkspaces) {
+            if (!mergedMap.has(cloud.id)) {
+              mergedMap.set(cloud.id, cloud);
+            }
+          }
+
+          const mergedWorkspaces = Array.from(mergedMap.values());
+
+          // Validate activeWorkspaceId is still valid after merge
+          const activeStillExists = mergedWorkspaces.some(
+            (ws) => ws.id === state.activeWorkspaceId
+          );
+          const newActiveId = activeStillExists
+            ? state.activeWorkspaceId
+            : mergedWorkspaces.find((ws) => !ws.isArchived)?.id ||
+              mergedWorkspaces[0]?.id || 'default';
+
+          return { workspaces: mergedWorkspaces, activeWorkspaceId: newActiveId };
+        });
       },
     }),
     {

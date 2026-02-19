@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { upsertWorkspaceToCloudForCurrentUser } from '@/lib/migration';
+import { upsertWorkspaceToCloudForCurrentUser, deleteWorkspaceFromCloudForCurrentUser } from '@/lib/migration';
 
 export interface Workspace {
   id: string;
@@ -95,6 +95,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             activeWorkspaceId: newActiveId,
           };
         });
+
+        // Sync deletion to Supabase (fire-and-forget)
+        deleteWorkspaceFromCloudForCurrentUser(id).catch(() => {});
       },
 
       updateWorkspace: (id, updates) => {
@@ -103,6 +106,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             ws.id === id ? { ...ws, ...updates } : ws
           ),
         }));
+
+        // Sync update to Supabase (fire-and-forget)
+        const updated = get().workspaces.find((ws) => ws.id === id);
+        if (updated) upsertWorkspaceToCloudForCurrentUser(updated).catch(() => {});
       },
 
       switchWorkspace: (id) => {
@@ -118,6 +125,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             ws.id === id ? { ...ws, isFavorite: !ws.isFavorite } : ws
           ),
         }));
+
+        // Sync update to Supabase (fire-and-forget)
+        const updated = get().workspaces.find((ws) => ws.id === id);
+        if (updated) upsertWorkspaceToCloudForCurrentUser(updated).catch(() => {});
       },
 
       toggleArchive: (id) => {
@@ -143,6 +154,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             activeWorkspaceId: newActiveId,
           };
         });
+
+        // Sync update to Supabase (fire-and-forget)
+        const updated = get().workspaces.find((ws) => ws.id === id);
+        if (updated) upsertWorkspaceToCloudForCurrentUser(updated).catch(() => {});
       },
 
       incrementSearchCount: (id) => {

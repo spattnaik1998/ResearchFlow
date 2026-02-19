@@ -31,9 +31,11 @@ export const saveSearchToHistory = (
     }
 
     const history = getSearchHistory(workspaceId);
+    // Remove any existing entry with the same ID to prevent duplicates after cloud sync
+    const deduped = history.filter((e) => e.id !== entry.id);
     const entryWithWorkspace = { ...entry, workspaceId: workspaceId || 'default' };
-    history.unshift(entryWithWorkspace);
-    const limited = history.slice(0, MAX_HISTORY_ENTRIES);
+    deduped.unshift(entryWithWorkspace);
+    const limited = deduped.slice(0, MAX_HISTORY_ENTRIES);
 
     const serialized = JSON.stringify(limited);
 

@@ -73,10 +73,7 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
       }
     }
 
-    // Step 3: Load search history from Supabase and merge with localStorage
-    await migrateSearchHistory(userId, workspaces)
-
-    // Step 4: Mark migration as complete
+    // Step 3: Mark migration as complete
     localStorage.setItem(`migration_complete_${userId}`, 'true')
     console.log('Data migration completed successfully for user', userId)
   } catch (error) {
@@ -137,6 +134,27 @@ export async function upsertWorkspaceToCloudForCurrentUser(workspace: Workspace)
   } catch (error) {
     console.error('Error upserting workspace for current user:', error)
     // Non-blocking - don't throw
+  }
+}
+
+/**
+ * Delete a workspace from Supabase for the current logged-in user
+ * Gets the current user session first, then deletes the workspace
+ * Fire-and-forget operation
+ */
+export async function deleteWorkspaceFromCloudForCurrentUser(workspaceId: string): Promise<void> {
+  try {
+    const supabase = createSupabaseClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) return
+    const { error } = await supabase
+      .from('user_workspaces')
+      .delete()
+      .eq('id', workspaceId)
+      .eq('user_id', session.user.id)
+    if (error) console.error('Failed to delete workspace from cloud:', error)
+  } catch (error) {
+    console.error('Error deleting workspace from cloud:', error)
   }
 }
 

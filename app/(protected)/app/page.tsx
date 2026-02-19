@@ -49,6 +49,7 @@ export default function Home() {
   const { user } = useAuthStore();
   const { success, error: showError } = useToast();
   const isFirstRender = useRef(true);
+  const lastSavedSearchRef = useRef<string | null>(null);
 
   // Helper to handle API responses and redirect on 401
   const handleApiResponse = async (response: Response, operation: string) => {
@@ -128,6 +129,10 @@ export default function Home() {
   // Save to history and update URL when search completes
   useEffect(() => {
     if (searchResults && summary && questions.length > 0) {
+      // Guard: only save once per search query, prevent re-render loops
+      if (lastSavedSearchRef.current === query) return;
+      lastSavedSearchRef.current = query;
+
       const entry: SearchHistoryEntry = {
         id: Date.now().toString(),
         query,
@@ -152,6 +157,7 @@ export default function Home() {
   }, [searchResults, summary, questions, query, activeWorkspaceId, incrementSearchCount, success, user]);
 
   const handleSearch = async (searchQuery: string) => {
+    lastSavedSearchRef.current = null; // Reset guard for each new search
     setError(null);
     setIsSearching(true);
     setQuery(searchQuery);

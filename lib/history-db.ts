@@ -100,6 +100,7 @@ export async function loadAllHistory(userId: string): Promise<Map<string, Search
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
+      .limit(500)
 
     if (error) {
       console.error('Failed to load all history:', error)

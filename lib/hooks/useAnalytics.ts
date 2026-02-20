@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 export type AnalyticsEventType = 'search' | 'summarize' | 'question' | 'note_create' | 'export' | 'ui_interaction';
@@ -29,18 +28,17 @@ export function useAnalytics() {
 
       const logPromise = (async () => {
         try {
-          // Skip if Supabase is not configured
-          if (!supabase) return;
-
-          // Log the event
-          await supabase
-            .from('analytics_events')
-            .insert({
+          // Log the event via the server API (which handles user_id from auth session)
+          await fetch('/api/analytics/log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
               workspace_id: activeWorkspaceId,
               event_type: eventType,
               event_category: eventCategory,
               metadata: metadata || {},
-            });
+            }),
+          });
         } catch (error) {
           // Silently fail - never interrupt user experience for analytics
           if (process.env.NODE_ENV === 'development') {
@@ -77,9 +75,10 @@ export async function logSearchEvent(
   durationMs: number
 ) {
   try {
-    await supabase
-      .from('analytics_events')
-      .insert({
+    await fetch('/api/analytics/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         workspace_id: workspaceId,
         event_type: 'search',
         event_category: 'search_workflow',
@@ -88,7 +87,8 @@ export async function logSearchEvent(
           results_count: resultsCount,
           duration_ms: durationMs,
         },
-      });
+      }),
+    });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Analytics] Failed to log search event:', error);
@@ -106,9 +106,10 @@ export async function logSummarizeEvent(
   durationMs: number
 ) {
   try {
-    await supabase
-      .from('analytics_events')
-      .insert({
+    await fetch('/api/analytics/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         workspace_id: workspaceId,
         event_type: 'summarize',
         event_category: 'search_workflow',
@@ -117,7 +118,8 @@ export async function logSummarizeEvent(
           summary_length: summaryLength,
           duration_ms: durationMs,
         },
-      });
+      }),
+    });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Analytics] Failed to log summarize event:', error);
@@ -135,9 +137,10 @@ export async function logQuestionEvent(
   durationMs: number
 ) {
   try {
-    await supabase
-      .from('analytics_events')
-      .insert({
+    await fetch('/api/analytics/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         workspace_id: workspaceId,
         event_type: 'question',
         event_category: 'search_workflow',
@@ -146,7 +149,8 @@ export async function logQuestionEvent(
           question_count: questionCount,
           duration_ms: durationMs,
         },
-      });
+      }),
+    });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Analytics] Failed to log question event:', error);
@@ -164,9 +168,10 @@ export async function logNoteCreationEvent(
   tagCount: number
 ) {
   try {
-    await supabase
-      .from('analytics_events')
-      .insert({
+    await fetch('/api/analytics/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         workspace_id: workspaceId,
         event_type: 'note_create',
         event_category: 'knowledge_base',
@@ -175,7 +180,8 @@ export async function logNoteCreationEvent(
           title,
           tag_count: tagCount,
         },
-      });
+      }),
+    });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Analytics] Failed to log note creation event:', error);
@@ -192,9 +198,10 @@ export async function logExportEvent(
   itemCount: number
 ) {
   try {
-    await supabase
-      .from('analytics_events')
-      .insert({
+    await fetch('/api/analytics/log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         workspace_id: workspaceId,
         event_type: 'export',
         event_category: 'exports',
@@ -202,7 +209,8 @@ export async function logExportEvent(
           export_format: exportFormat,
           item_count: itemCount,
         },
-      });
+      }),
+    });
   } catch (error) {
     if (process.env.NODE_ENV === 'development') {
       console.debug('[Analytics] Failed to log export event:', error);

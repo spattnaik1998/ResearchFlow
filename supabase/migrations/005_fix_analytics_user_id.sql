@@ -3,8 +3,13 @@
 -- Run this if you've already executed migration 002_analytics_system.sql
 
 -- Step 1: Check if analytics_events has user_id column, if not add it
+-- Add the column without a default to ensure all future inserts must provide user_id
 ALTER TABLE IF EXISTS analytics_events
-ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT gen_random_uuid();
+ADD COLUMN IF NOT EXISTS user_id UUID;
+
+-- Ensure the column is NOT NULL and remove any default
+ALTER TABLE IF EXISTS analytics_events
+ALTER COLUMN user_id SET NOT NULL;
 
 -- Step 2: Add user_id index if it doesn't exist
 CREATE INDEX IF NOT EXISTS idx_analytics_user ON analytics_events(user_id);

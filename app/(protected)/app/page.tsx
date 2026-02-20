@@ -400,7 +400,7 @@ ${questionsSection}
             <Button
               variant="secondary"
               size="sm"
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/app/dashboard')}
               className="transition-all duration-200"
               aria-label="View analytics dashboard"
               title="Analytics Dashboard"

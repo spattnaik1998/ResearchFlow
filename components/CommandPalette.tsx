@@ -56,7 +56,7 @@ export function CommandPalette({
         icon: '📊',
         shortcut: undefined,
         action: () => {
-          router.push('/dashboard');
+          router.push('/app/dashboard');
           close();
         },
       },

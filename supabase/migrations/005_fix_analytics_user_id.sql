@@ -1,29 +1,20 @@
--- Analytics System Schema
--- Execute this in Supabase SQL Editor to track user events
+-- Fix analytics tables to add missing user_id column
+-- This migration updates the existing analytics tables to include user_id
+-- Run this if you've already executed migration 002_analytics_system.sql
 
--- Create analytics_events table for all event tracking
-CREATE TABLE IF NOT EXISTS analytics_events (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  workspace_id TEXT NOT NULL,
-  event_type TEXT NOT NULL, -- 'search' | 'summarize' | 'question' | 'note_create' | 'export' | etc.
-  event_category TEXT, -- 'search_workflow' | 'knowledge_base' | 'exports' | 'ui_interactions'
-  metadata JSONB, -- Flexible JSON for event-specific data
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+-- Step 1: Check if analytics_events has user_id column, if not add it
+ALTER TABLE IF EXISTS analytics_events
+ADD COLUMN IF NOT EXISTS user_id UUID NOT NULL DEFAULT gen_random_uuid();
 
--- Create indexes for efficient querying
+-- Step 2: Add user_id index if it doesn't exist
 CREATE INDEX IF NOT EXISTS idx_analytics_user ON analytics_events(user_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_workspace ON analytics_events(workspace_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics_events(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_analytics_type ON analytics_events(event_type);
 CREATE INDEX IF NOT EXISTS idx_analytics_user_workspace ON analytics_events(user_id, workspace_id);
-CREATE INDEX IF NOT EXISTS idx_analytics_workspace_created ON analytics_events(workspace_id, created_at DESC);
 
--- Enable Row Level Security
-ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
+-- Step 3: Recreate the RLS policies with user-specific rules
+-- First drop existing policies
+DROP POLICY IF EXISTS "Allow all operations on analytics_events" ON analytics_events;
 
--- Create RLS policy - users can only see/modify their own analytics
+-- Create new user-scoped RLS policies
 CREATE POLICY "Users can view their own analytics" ON analytics_events
   FOR SELECT USING (auth.uid() = user_id);
 
@@ -36,7 +27,9 @@ CREATE POLICY "Users can update their own analytics" ON analytics_events
 CREATE POLICY "Users can delete their own analytics" ON analytics_events
   FOR DELETE USING (auth.uid() = user_id);
 
--- Create materialized views for common aggregations
+-- Step 4: Recreate materialized view with user_id
+DROP MATERIALIZED VIEW IF EXISTS analytics_daily_searches CASCADE;
+
 CREATE MATERIALIZED VIEW analytics_daily_searches AS
 SELECT
   user_id,
@@ -55,7 +48,9 @@ CREATE INDEX IF NOT EXISTS idx_daily_searches_user ON analytics_daily_searches(u
 CREATE INDEX IF NOT EXISTS idx_daily_searches_workspace_date ON analytics_daily_searches(workspace_id, date DESC);
 CREATE INDEX IF NOT EXISTS idx_daily_searches_user_workspace_date ON analytics_daily_searches(user_id, workspace_id, date DESC);
 
--- Create view for top queries (without materialization for real-time data)
+-- Step 5: Recreate views with user_id
+DROP VIEW IF EXISTS analytics_top_queries CASCADE;
+
 CREATE VIEW analytics_top_queries AS
 SELECT
   user_id,
@@ -69,7 +64,8 @@ WHERE event_type = 'search' AND metadata->>'query' IS NOT NULL
 GROUP BY user_id, workspace_id, (metadata->>'query')
 ORDER BY search_count DESC;
 
--- Create view for workspace activity comparison
+DROP VIEW IF EXISTS analytics_workspace_activity CASCADE;
+
 CREATE VIEW analytics_workspace_activity AS
 SELECT
   user_id,
@@ -85,7 +81,8 @@ SELECT
 FROM analytics_events
 GROUP BY user_id, workspace_id;
 
--- Create view for hourly activity (for heatmap)
+DROP VIEW IF EXISTS analytics_hourly_activity CASCADE;
+
 CREATE VIEW analytics_hourly_activity AS
 SELECT
   user_id,

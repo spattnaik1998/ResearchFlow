@@ -119,13 +119,21 @@ export async function GET(request: NextRequest) {
 
     if (dailyError || topError || statsError || hourlyError) {
       console.error('Analytics query errors:', {
-        dailyError,
-        topError,
-        statsError,
-        hourlyError,
+        dailyError: dailyError ? { message: dailyError.message, code: dailyError.code } : null,
+        topError: topError ? { message: topError.message, code: topError.code } : null,
+        statsError: statsError ? { message: statsError.message, code: statsError.code } : null,
+        hourlyError: hourlyError ? { message: hourlyError.message, code: hourlyError.code } : null,
       });
       return NextResponse.json(
-        { error: 'Failed to fetch analytics data' },
+        {
+          error: 'Failed to fetch analytics data',
+          details: {
+            daily: dailyError?.message,
+            queries: topError?.message,
+            stats: statsError?.message,
+            hourly: hourlyError?.message,
+          }
+        },
         { status: 500 }
       );
     }

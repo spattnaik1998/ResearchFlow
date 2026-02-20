@@ -82,8 +82,8 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect authenticated users away from auth pages
-  if (pathname.startsWith('/auth') && user) {
+  // Redirect authenticated users away from auth pages (except reset password form)
+  if (pathname.startsWith('/auth') && user && pathname !== '/auth/reset-password') {
     return NextResponse.redirect(new URL('/app', request.url))
   }
 

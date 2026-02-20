@@ -71,13 +71,21 @@ export default function Dashboard() {
         );
 
         if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data');
+          let errorDetail = 'Unknown error';
+          try {
+            const errorData = await response.json();
+            errorDetail = errorData.error || `HTTP ${response.status}`;
+          } catch {
+            errorDetail = `HTTP ${response.status} ${response.statusText}`;
+          }
+          throw new Error(`Failed to fetch dashboard data: ${errorDetail}`);
         }
 
         const dashboardData: DashboardData = await response.json();
         setData(dashboardData);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load dashboard');
+        const errorMsg = err instanceof Error ? err.message : 'Failed to load dashboard';
+        setError(errorMsg);
         console.error('Dashboard error:', err);
       } finally {
         setIsLoading(false);

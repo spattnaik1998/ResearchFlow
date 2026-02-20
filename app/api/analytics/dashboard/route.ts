@@ -16,6 +16,15 @@ function getDateRangeMS(range: TimeRange): number {
 
 export async function GET(request: NextRequest) {
   try {
+    // Check environment variables first
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error('Supabase environment variables not configured');
+      return NextResponse.json(
+        { error: 'Supabase not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in Vercel environment variables.' },
+        { status: 500 }
+      );
+    }
+
     const user = await getUser();
     if (!user) {
       return NextResponse.json(

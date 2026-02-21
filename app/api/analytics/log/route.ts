@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { getUser } from '@/lib/auth-helpers';
 
 export async function POST(request: NextRequest) {
@@ -22,13 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if Supabase is configured
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Analytics not configured' },
-        { status: 500 }
-      );
-    }
+    const supabase = await createSupabaseServerClient();
 
     // Insert the event
     const { error } = await supabase

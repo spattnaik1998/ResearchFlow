@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 import { getUser } from '@/lib/auth-helpers';
 
 type TimeRange = '7d' | '30d' | '90d';
@@ -38,12 +38,7 @@ export async function GET(request: NextRequest) {
     const range = (searchParams.get('range') || '7d') as TimeRange;
     const isGlobalView = !workspaceId || workspaceId === 'all';
 
-    if (!supabase) {
-      return NextResponse.json(
-        { error: 'Analytics not configured' },
-        { status: 500 }
-      );
-    }
+    const supabase = await createSupabaseServerClient();
 
     // Fetch dashboard data - all queries in parallel
     // Build queries conditionally based on whether we're viewing all workspaces or a specific one

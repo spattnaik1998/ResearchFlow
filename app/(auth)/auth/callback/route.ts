@@ -12,9 +12,11 @@ import { cookies } from 'next/headers'
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
+  const token_hash = searchParams.get('token_hash')
+  const type = searchParams.get('type')
   const next = searchParams.get('next') ?? '/app'
 
-  if (code) {
+  if (code || token_hash) {
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,8 +38,22 @@ export async function GET(request: Request) {
       }
     )
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code)
-    if (!error) {
+    let exchangeError = null
+
+    if (code) {
+      // PKCE flow (OAuth, magic links, and some recovery emails)
+      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      exchangeError = error
+    } else if (token_hash && type) {
+      // Token hash flow (recovery emails with Supabase email templates)
+      const { error } = await supabase.auth.verifyOtp({
+        token_hash,
+        type: type as 'recovery' | 'email' | 'email_change',
+      })
+      exchangeError = error
+    }
+
+    if (!exchangeError) {
       return NextResponse.redirect(new URL(next, request.url))
     }
   }

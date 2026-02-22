@@ -143,7 +143,7 @@ export default function Home() {
         workspaceId: activeWorkspaceId || 'default',
       };
 
-      saveSearchToHistoryDebounced(entry, activeWorkspaceId || 'default');
+      saveSearchToHistoryDebounced(entry, activeWorkspaceId || 'default', user?.id);
 
       // Dual-write: Also save to Supabase (fire-and-forget)
       if (user?.id) {
@@ -295,6 +295,7 @@ ${questionsSection}
 
       const newNote = await knowledgeDB.createNote({
         workspace_id: activeWorkspaceId || 'default',
+        user_id: user?.id,
         title: query,
         content: noteContent,
         search_query: query,

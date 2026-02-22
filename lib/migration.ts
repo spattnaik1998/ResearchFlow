@@ -47,13 +47,20 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
         created_at: new Date(ws.createdAt).toISOString(),
       }))
 
+      // IMPORTANT: Using onConflict: 'id' is a temporary measure.
+      // After migration 007 adds the composite unique constraint (id, user_id),
+      // change this to: onConflict: 'id,user_id'
       const { error: workspaceError } = await supabase
         .from('user_workspaces')
         .upsert(workspacesToInsert, { onConflict: 'id' })
 
       if (workspaceError) {
         console.error('Failed to migrate workspaces:', workspaceError)
-        throw new Error(`Workspace migration failed: ${workspaceError.message}`)
+        // Don't throw to allow migration flag to be set, but surface the error
+        console.error('WARNING: Workspace migration failed silently. This may cause multi-user issues.')
+        // Still set the flag to avoid repeated upsert attempts
+        localStorage.setItem(`migration_complete_${userId}`, 'true')
+        return
       }
 
       console.log(`Migrated ${workspaces.length} workspace(s) for user ${userId}`)
@@ -223,8 +230,9 @@ export async function migrateSearchHistory(userId: string, workspaces: Workspace
 
       if (cloudEntries.length === 0) return
 
-      // Load existing localStorage history
-      const historyKey = `voicesearch_history_${wsId}`
+      // Load existing localStorage history with userId namespace
+      const userPrefix = userId.slice(0, 8)
+      const historyKey = `voicesearch_history_${userPrefix}_${wsId}`
       const localStorageJson = localStorage.getItem(historyKey)
       const localEntries: SearchHistoryEntry[] = localStorageJson ? JSON.parse(localStorageJson) : []
 

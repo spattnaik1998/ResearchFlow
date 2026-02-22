@@ -10,6 +10,7 @@ import { useSearchHistory } from '@/lib/hooks';
 import { useNotificationStore } from '@/stores/notificationStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { migrateUserData, isMigrationComplete, loadCloudDataOnLogin } from '@/lib/migration';
+import { clearAllHistoryKeysForUser } from '@/lib/storage';
 
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const [historyCount, setHistoryCount] = useState(0);
@@ -79,6 +80,16 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          // Detect user switch: compare incoming user ID with stored user ID
+          const lastUserId = localStorage.getItem('researchflow_last_user_id');
+          if (lastUserId && lastUserId !== session.user.id) {
+            // Different user logged in — clear previous user's data
+            clearAllHistoryKeysForUser(lastUserId);
+            useWorkspaceStore.getState().clearForNewUser();
+          }
+          // Store current user ID for next login
+          localStorage.setItem('researchflow_last_user_id', session.user.id);
+
           setUser({
             id: session.user.id,
             email: session.user.email || '',
@@ -108,6 +119,16 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
+          // Detect user switch: compare incoming user ID with stored user ID
+          const lastUserId = localStorage.getItem('researchflow_last_user_id');
+          if (lastUserId && lastUserId !== session.user.id) {
+            // Different user logged in — clear previous user's data
+            clearAllHistoryKeysForUser(lastUserId);
+            useWorkspaceStore.getState().clearForNewUser();
+          }
+          // Store current user ID for next login
+          localStorage.setItem('researchflow_last_user_id', session.user.id);
+
           setUser({
             id: session.user.id,
             email: session.user.email || '',
@@ -123,6 +144,7 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
             ]);
           }
         } else if (event === 'SIGNED_OUT') {
+          localStorage.removeItem('researchflow_last_user_id');
           logout();
         }
       }

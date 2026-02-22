@@ -29,6 +29,7 @@ export class KnowledgeDB {
         ...note,
         metadata: note.metadata || null,
         source_searches: note.source_searches || null,
+        // user_id is required; should be provided by caller
       })
       .select()
       .single()
@@ -40,11 +41,21 @@ export class KnowledgeDB {
   async getNotes(workspaceId: string): Promise<KnowledgeNote[]> {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
 
-    const { data, error } = await supabase
+    // Get current user for RLS + additional defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    let query = supabase
       .from('knowledge_notes')
       .select('*')
       .eq('workspace_id', workspaceId)
-      .order('created_at', { ascending: false })
+
+    // Add user_id filter for defense-in-depth
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) throw new Error(`Failed to fetch notes: ${error.message}`)
     return (data || []) as KnowledgeNote[]
@@ -55,11 +66,21 @@ export class KnowledgeDB {
       throw new Error('Supabase not configured')
     }
 
-    const { data, error } = await supabase
+    // Get current user for RLS + additional defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    let query = supabase
       .from('knowledge_notes')
       .select('*')
       .eq('id', id)
-      .single()
+
+    // Add user_id filter for defense-in-depth
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { data, error } = await query.single()
 
     if (error) throw new Error(`Failed to fetch note: ${error.message}`)
     return data as KnowledgeNote
@@ -73,15 +94,24 @@ export class KnowledgeDB {
       throw new Error('Supabase not configured')
     }
 
-    const { data, error } = await supabase
+    // Get current user for RLS + additional defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    let query = supabase
       .from('knowledge_notes')
       .update({
         ...updates,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)
-      .select()
-      .single()
+
+    // Add user_id filter for defense-in-depth
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { data, error } = await query.select().single()
 
     if (error) throw new Error(`Failed to update note: ${error.message}`)
     return data as KnowledgeNote
@@ -92,10 +122,21 @@ export class KnowledgeDB {
       throw new Error('Supabase not configured')
     }
 
-    const { error } = await supabase
+    // Get current user for RLS + additional defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    let query = supabase
       .from('knowledge_notes')
       .delete()
       .eq('id', id)
+
+    // Add user_id filter for defense-in-depth
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { error } = await query
 
     if (error) throw new Error(`Failed to delete note: ${error.message}`)
   }
@@ -161,6 +202,10 @@ export class KnowledgeDB {
   async searchNotesByTag(workspaceId: string, tag: string): Promise<string[]> {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
 
+    // Get current user for RLS + additional defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
     const normalizedTag = tag.toLowerCase().trim()
     const { data, error } = await supabase
       .from('note_tags')
@@ -173,11 +218,18 @@ export class KnowledgeDB {
     const noteIds = (data || []).map((row) => row.note_id)
     if (noteIds.length === 0) return []
 
-    const { data: notes } = await supabase
+    let query = supabase
       .from('knowledge_notes')
       .select('id')
       .eq('workspace_id', workspaceId)
       .in('id', noteIds)
+
+    // Add user_id filter for defense-in-depth
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { data: notes } = await query
 
     return (notes || []).map((note) => note.id)
   }
@@ -186,16 +238,26 @@ export class KnowledgeDB {
    * SEARCH OPERATIONS
    */
 
-  async searchNotes(workspaceId: string, query: string): Promise<KnowledgeNote[]> {
+  async searchNotes(workspaceId: string, searchQuery: string): Promise<KnowledgeNote[]> {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
 
-    const searchTerm = `%${query}%`
-    const { data, error } = await supabase
+    // Get current user for RLS + additional defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    const searchTerm = `%${searchQuery}%`
+    let query = supabase
       .from('knowledge_notes')
       .select('*')
       .eq('workspace_id', workspaceId)
       .or(`title.ilike.${searchTerm},content.ilike.${searchTerm}`)
-      .order('created_at', { ascending: false })
+
+    // Add user_id filter for defense-in-depth
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) throw new Error(`Failed to search notes: ${error.message}`)
     return (data || []) as KnowledgeNote[]

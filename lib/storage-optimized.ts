@@ -6,9 +6,10 @@ const DEBOUNCE_DELAY = 300; // ms
 interface PendingWrite {
   entry: SearchHistoryEntry;
   workspaceId?: string;
+  userId?: string;
 }
 
-// Queue of pending writes keyed by workspace
+// Queue of pending writes keyed by workspace + user
 const pendingWrites = new Map<string, PendingWrite>();
 const timeoutIds = new Map<string, NodeJS.Timeout>();
 
@@ -19,41 +20,43 @@ const timeoutIds = new Map<string, NodeJS.Timeout>();
  */
 export const saveSearchToHistoryDebounced = (
   entry: SearchHistoryEntry,
-  workspaceId?: string
+  workspaceId?: string,
+  userId?: string
 ): void => {
   const wsId = workspaceId || 'default';
+  const key = userId ? `${userId.slice(0, 8)}_${wsId}` : wsId;
 
   // Queue the write
-  pendingWrites.set(wsId, { entry, workspaceId });
+  pendingWrites.set(key, { entry, workspaceId, userId });
 
   // Clear existing timeout if present
-  const existingTimeout = timeoutIds.get(wsId);
+  const existingTimeout = timeoutIds.get(key);
   if (existingTimeout) {
     clearTimeout(existingTimeout);
   }
 
   // Set new debounce timeout
   const timeoutId = setTimeout(() => {
-    flushPendingWrites(wsId);
+    flushPendingWrites(key);
   }, DEBOUNCE_DELAY);
 
-  timeoutIds.set(wsId, timeoutId);
+  timeoutIds.set(key, timeoutId);
 };
 
 /**
  * Flushes pending writes for a specific workspace
  */
-const flushPendingWrites = (workspaceId: string): void => {
-  const pending = pendingWrites.get(workspaceId);
+const flushPendingWrites = (key: string): void => {
+  const pending = pendingWrites.get(key);
   if (!pending) return;
 
   try {
-    saveSearchToHistory(pending.entry, pending.workspaceId);
+    saveSearchToHistory(pending.entry, pending.workspaceId, pending.userId);
   } catch (error) {
-    console.error(`Failed to flush pending writes for workspace ${workspaceId}:`, error);
+    console.error(`Failed to flush pending writes for key ${key}:`, error);
   } finally {
-    pendingWrites.delete(workspaceId);
-    timeoutIds.delete(workspaceId);
+    pendingWrites.delete(key);
+    timeoutIds.delete(key);
   }
 };
 
@@ -76,18 +79,19 @@ export const flushAllPendingWrites = (): void => {
  * Cancel pending writes for a workspace
  * Useful for cleanup or if operation is no longer needed
  */
-export const cancelPendingWrites = (workspaceId: string): void => {
+export const cancelPendingWrites = (workspaceId: string, userId?: string): void => {
   const wsId = workspaceId || 'default';
+  const key = userId ? `${userId.slice(0, 8)}_${wsId}` : wsId;
 
   // Clear timeout
-  const timeout = timeoutIds.get(wsId);
+  const timeout = timeoutIds.get(key);
   if (timeout) {
     clearTimeout(timeout);
-    timeoutIds.delete(wsId);
+    timeoutIds.delete(key);
   }
 
   // Remove from queue
-  pendingWrites.delete(wsId);
+  pendingWrites.delete(key);
 };
 
 /**

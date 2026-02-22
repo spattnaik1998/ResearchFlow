@@ -90,6 +90,7 @@ export interface Notification {
 export interface KnowledgeNote {
   id: string;
   workspace_id: string;
+  user_id?: string;
   title: string;
   content: string;
   search_query?: string;

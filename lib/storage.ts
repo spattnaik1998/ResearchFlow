@@ -7,21 +7,47 @@ const MAX_STORAGE_SIZE = 100 * 1024; // 100KB per workspace
 
 /**
  * Get the storage key for a workspace
+ * Namespace by user ID to prevent cross-user data leakage
  * Defaults to 'default' workspace if not specified
  */
-const getHistoryKey = (workspaceId?: string): string => {
-  return `${HISTORY_KEY_PREFIX}_${workspaceId || 'default'}`;
+const getHistoryKey = (workspaceId?: string, userId?: string): string => {
+  const userPrefix = userId ? `${userId.slice(0, 8)}_` : '';
+  return `${HISTORY_KEY_PREFIX}_${userPrefix}${workspaceId || 'default'}`;
+};
+
+/**
+ * Clear all history keys for a specific user
+ * Used when switching users on the same browser
+ */
+export const clearAllHistoryKeysForUser = (userId: string): void => {
+  const prefix = `${HISTORY_KEY_PREFIX}_${userId.slice(0, 8)}_`;
+  const keysToDelete: string[] = [];
+
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith(prefix)) {
+      keysToDelete.push(key);
+    }
+  });
+
+  keysToDelete.forEach(key => {
+    try {
+      localStorage.removeItem(key);
+    } catch (error) {
+      console.error(`Failed to remove history key ${key}:`, error);
+    }
+  });
 };
 
 /**
  * Save a search entry to localStorage history
  * Maintains chronological order (newest first)
- * Workspace-isolated storage
+ * Workspace-isolated and user-scoped storage
  * Includes validation and size limits
  */
 export const saveSearchToHistory = (
   entry: SearchHistoryEntry,
-  workspaceId?: string
+  workspaceId?: string,
+  userId?: string
 ): void => {
   try {
     // Validate entry
@@ -30,7 +56,7 @@ export const saveSearchToHistory = (
       return;
     }
 
-    const history = getSearchHistory(workspaceId);
+    const history = getSearchHistory(workspaceId, userId);
     // Remove any existing entry with the same ID to prevent duplicates after cloud sync
     const deduped = history.filter((e) => e.id !== entry.id);
     const entryWithWorkspace = { ...entry, workspaceId: workspaceId || 'default' };
@@ -44,18 +70,18 @@ export const saveSearchToHistory = (
       console.warn(`Storage limit exceeded for workspace ${workspaceId || 'default'}, trimming entries`);
       // Remove entries until size is acceptable
       const trimmed = limited.slice(0, Math.max(10, Math.floor(limited.length * 0.75)));
-      localStorage.setItem(getHistoryKey(workspaceId), JSON.stringify(trimmed));
+      localStorage.setItem(getHistoryKey(workspaceId, userId), JSON.stringify(trimmed));
     } else {
-      localStorage.setItem(getHistoryKey(workspaceId), serialized);
+      localStorage.setItem(getHistoryKey(workspaceId, userId), serialized);
     }
   } catch (error) {
     console.error('Failed to save search to history:', error);
     // Emergency fallback: try to clear old entries if quota exceeded
     if (error instanceof DOMException && error.code === 22) {
       try {
-        const fallback = getSearchHistory(workspaceId);
+        const fallback = getSearchHistory(workspaceId, userId);
         const trimmed = fallback.slice(0, 10);
-        localStorage.setItem(getHistoryKey(workspaceId), JSON.stringify(trimmed));
+        localStorage.setItem(getHistoryKey(workspaceId, userId), JSON.stringify(trimmed));
       } catch (fallbackError) {
         console.error('Emergency fallback failed:', fallbackError);
       }
@@ -66,18 +92,18 @@ export const saveSearchToHistory = (
 /**
  * Retrieve all search history from localStorage
  * Returns empty array if no history exists
- * Workspace-isolated retrieval
+ * Workspace-isolated and user-scoped retrieval
  * Validates and repairs entries on load
  */
-export const getSearchHistory = (workspaceId?: string): SearchHistoryEntry[] => {
+export const getSearchHistory = (workspaceId?: string, userId?: string): SearchHistoryEntry[] => {
   try {
-    const data = localStorage.getItem(getHistoryKey(workspaceId));
+    const data = localStorage.getItem(getHistoryKey(workspaceId, userId));
     if (!data) return [];
 
     const parsed = JSON.parse(data) as unknown;
     if (!Array.isArray(parsed)) {
       console.error('History data is not an array, clearing');
-      clearSearchHistory(workspaceId);
+      clearSearchHistory(workspaceId, userId);
       return [];
     }
 
@@ -100,7 +126,7 @@ export const getSearchHistory = (workspaceId?: string): SearchHistoryEntry[] => 
     // Save repaired data back to storage
     if (hasRepaired && validEntries.length > 0) {
       try {
-        localStorage.setItem(getHistoryKey(workspaceId), JSON.stringify(validEntries));
+        localStorage.setItem(getHistoryKey(workspaceId, userId), JSON.stringify(validEntries));
       } catch (error) {
         console.error('Failed to save repaired history:', error);
       }
@@ -116,9 +142,9 @@ export const getSearchHistory = (workspaceId?: string): SearchHistoryEntry[] => 
 /**
  * Clear all search history for a workspace
  */
-export const clearSearchHistory = (workspaceId?: string): void => {
+export const clearSearchHistory = (workspaceId?: string, userId?: string): void => {
   try {
-    localStorage.removeItem(getHistoryKey(workspaceId));
+    localStorage.removeItem(getHistoryKey(workspaceId, userId));
   } catch (error) {
     console.error('Failed to clear search history:', error);
   }
@@ -129,12 +155,13 @@ export const clearSearchHistory = (workspaceId?: string): void => {
  */
 export const deleteHistoryEntry = (
   id: string,
-  workspaceId?: string
+  workspaceId?: string,
+  userId?: string
 ): void => {
   try {
-    const history = getSearchHistory(workspaceId);
+    const history = getSearchHistory(workspaceId, userId);
     const filtered = history.filter(entry => entry.id !== id);
-    localStorage.setItem(getHistoryKey(workspaceId), JSON.stringify(filtered));
+    localStorage.setItem(getHistoryKey(workspaceId, userId), JSON.stringify(filtered));
   } catch (error) {
     console.error('Failed to delete history entry:', error);
   }
@@ -144,9 +171,10 @@ export const deleteHistoryEntry = (
  * Get grouped history by date (Today, Yesterday, This Week, Older)
  */
 export const getGroupedHistory = (
-  workspaceId?: string
+  workspaceId?: string,
+  userId?: string
 ): Record<string, SearchHistoryEntry[]> => {
-  const history = getSearchHistory(workspaceId);
+  const history = getSearchHistory(workspaceId, userId);
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const yesterday = new Date(today);

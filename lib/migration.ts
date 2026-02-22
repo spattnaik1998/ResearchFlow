@@ -47,12 +47,9 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
         created_at: new Date(ws.createdAt).toISOString(),
       }))
 
-      // IMPORTANT: Using onConflict: 'id' is a temporary measure.
-      // After migration 007 adds the composite unique constraint (id, user_id),
-      // change this to: onConflict: 'id,user_id'
       const { error: workspaceError } = await supabase
         .from('user_workspaces')
-        .upsert(workspacesToInsert, { onConflict: 'id' })
+        .upsert(workspacesToInsert, { onConflict: 'id,user_id' })
 
       if (workspaceError) {
         console.error('Failed to migrate workspaces:', workspaceError)
@@ -110,7 +107,7 @@ export async function upsertWorkspaceToCloud(workspace: Workspace, userId: strin
 
     const { error } = await supabase
       .from('user_workspaces')
-      .upsert(dbWorkspace, { onConflict: 'id' })
+      .upsert(dbWorkspace, { onConflict: 'id,user_id' })
 
     if (error) {
       console.error('Failed to save workspace to cloud:', error)

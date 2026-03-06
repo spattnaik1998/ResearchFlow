@@ -30,6 +30,7 @@ interface WorkspaceActions {
   incrementSearchCount: (id: string) => void;
   getActiveWorkspace: () => Workspace | null;
   mergeCloudWorkspaces: (cloudWorkspaces: Workspace[]) => void;
+  setWorkspacesFromCloud: (cloudWorkspaces: Workspace[]) => void;
   clearForNewUser: () => void;
 }
 
@@ -221,6 +222,26 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
                 mergedWorkspaces[0]?.id || null;
 
             return { workspaces: mergedWorkspaces, activeWorkspaceId: newActiveId };
+          });
+        },
+
+        /**
+         * Replace local workspaces entirely with cloud workspaces.
+         * Cloud is always authoritative on login — prevents stale local state
+         * from a previous user being merged into the new user's workspace list.
+         */
+        setWorkspacesFromCloud: (cloudWorkspaces: Workspace[]) => {
+          if (cloudWorkspaces.length === 0) return;
+          set((state) => {
+            const activeStillExists = cloudWorkspaces.some(
+              (ws) => ws.id === state.activeWorkspaceId
+            );
+            const newActiveId = activeStillExists
+              ? state.activeWorkspaceId
+              : cloudWorkspaces.find((ws) => !ws.isArchived)?.id ||
+                cloudWorkspaces[0]?.id ||
+                null;
+            return { workspaces: cloudWorkspaces, activeWorkspaceId: newActiveId };
           });
         },
 

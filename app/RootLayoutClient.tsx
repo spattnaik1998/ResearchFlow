@@ -15,18 +15,21 @@ import { clearAllHistoryKeysForUser } from '@/lib/storage';
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const [historyCount, setHistoryCount] = useState(0);
   const { getSearchHistory } = useSearchHistory();
-  const { activeWorkspaceId, _hasHydrated, workspaces, mergeCloudWorkspaces } = useWorkspaceStore();
+  const { activeWorkspaceId, _hasHydrated, setWorkspacesFromCloud } = useWorkspaceStore();
   const { setUser, logout } = useAuthStore();
   const { showToast } = useNotificationStore();
   const migrationRunningRef = useRef(false);
   const cloudLoadRunningRef = useRef(false);
 
-  // Helper to run migration only once, preventing concurrent/duplicate calls
+  // Helper to run migration only once, preventing concurrent/duplicate calls.
+  // Reads workspaces from the store at call time (not a stale closure) so it
+  // always uses the current user's fresh workspaces, not a previous user's.
   const runMigrationOnce = useCallback(async (userId: string) => {
     if (migrationRunningRef.current || isMigrationComplete(userId)) return;
     migrationRunningRef.current = true;
     try {
-      await migrateUserData(userId, workspaces);
+      const currentWorkspaces = useWorkspaceStore.getState().workspaces;
+      await migrateUserData(userId, currentWorkspaces);
       showToast({
         type: 'success',
         title: 'Workspace data synced to cloud!',
@@ -40,23 +43,25 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     } finally {
       migrationRunningRef.current = false;
     }
-  }, [workspaces, showToast]);
+  }, [showToast]);
 
-  // Load cloud data on login (runs every login, not gated by migration flag)
+  // Load cloud data on login (runs every login, not gated by migration flag).
+  // Uses setWorkspacesFromCloud (replaces) instead of merge so stale local
+  // workspaces from a previous user are never preserved.
   const loadCloudData = useCallback(async (userId: string) => {
     if (cloudLoadRunningRef.current) return;
     cloudLoadRunningRef.current = true;
     try {
       const cloudWorkspaces = await loadCloudDataOnLogin(userId);
       if (cloudWorkspaces.length > 0) {
-        mergeCloudWorkspaces(cloudWorkspaces);
+        setWorkspacesFromCloud(cloudWorkspaces);
       }
     } catch (error) {
       console.error('Cloud data load failed:', error);
     } finally {
       cloudLoadRunningRef.current = false;
     }
-  }, [mergeCloudWorkspaces]);
+  }, [setWorkspacesFromCloud]);
 
   // Only access localStorage after hydration (on client side)
   // Re-calculate when workspace changes
@@ -80,11 +85,13 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          // Detect user switch: compare incoming user ID with stored user ID
+          // Detect user switch OR first login on this browser.
+          // If lastUserId is null, workspace-storage may contain a previous
+          // user's workspaces (logout clears the ID key but not the store).
+          // Always clear when the stored user doesn't match current user.
           const lastUserId = localStorage.getItem('researchflow_last_user_id');
-          if (lastUserId && lastUserId !== session.user.id) {
-            // Different user logged in — clear previous user's data
-            clearAllHistoryKeysForUser(lastUserId);
+          if (!lastUserId || lastUserId !== session.user.id) {
+            clearAllHistoryKeysForUser(lastUserId || '');
             useWorkspaceStore.getState().clearForNewUser();
           }
           // Store current user ID for next login
@@ -119,11 +126,10 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (event === 'SIGNED_IN' && session?.user) {
-          // Detect user switch: compare incoming user ID with stored user ID
+          // Same logic as initializeUser: clear whenever user ID doesn't match.
           const lastUserId = localStorage.getItem('researchflow_last_user_id');
-          if (lastUserId && lastUserId !== session.user.id) {
-            // Different user logged in — clear previous user's data
-            clearAllHistoryKeysForUser(lastUserId);
+          if (!lastUserId || lastUserId !== session.user.id) {
+            clearAllHistoryKeysForUser(lastUserId || '');
             useWorkspaceStore.getState().clearForNewUser();
           }
           // Store current user ID for next login
@@ -144,6 +150,9 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
             ]);
           }
         } else if (event === 'SIGNED_OUT') {
+          // Clear workspace-storage so the next user who logs in on this
+          // browser does NOT inherit stale workspaces from this session.
+          useWorkspaceStore.getState().clearForNewUser();
           localStorage.removeItem('researchflow_last_user_id');
           logout();
         }

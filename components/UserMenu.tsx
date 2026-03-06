@@ -2,13 +2,11 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createSupabaseClient } from '@/lib/supabase'
 import { useAuthStore } from '@/stores/authStore'
 import { LogOut, Settings, User } from 'lucide-react'
 
 export function UserMenu() {
-  const router = useRouter()
   const { user, logout } = useAuthStore()
   const [isOpen, setIsOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -28,6 +26,7 @@ export function UserMenu() {
   if (!user) return null
 
   async function handleLogout() {
+    setIsOpen(false)
     try {
       const supabase = createSupabaseClient()
       await supabase.auth.signOut()
@@ -35,8 +34,10 @@ export function UserMenu() {
       console.error('Sign out error:', error)
     } finally {
       logout()
-      setIsOpen(false)
-      router.push('/auth/login')
+      // Hard navigation so middleware re-evaluates with cleared session cookies.
+      // router.push() is client-side and the middleware may still see a valid
+      // cookie in the same request cycle, redirecting back to /app.
+      window.location.href = '/auth/login'
     }
   }
 

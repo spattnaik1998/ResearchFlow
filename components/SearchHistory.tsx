@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useAuthStore } from '@/stores/authStore';
 import { getGroupedHistory, clearSearchHistory, deleteHistoryEntry, formatTime } from '@/lib/storage';
 import type { SearchHistoryEntry } from '@/types';
 import { Button } from './Button';
@@ -33,6 +34,8 @@ export function SearchHistory({
   currentQuery,
 }: SearchHistoryProps) {
   const { activeWorkspaceId, workspaces, _hasHydrated } = useWorkspaceStore();
+  const { user } = useAuthStore();
+  const userId = user?.id;
   const activeWorkspace = workspaces.find(w => w.id === activeWorkspaceId);
   const [groupedHistory, setGroupedHistory] = useState<Record<string, SearchHistoryEntry[]>>({});
   const [searchFilter, setSearchFilter] = useState('');
@@ -41,7 +44,7 @@ export function SearchHistory({
   const loadHistory = useCallback(() => {
     try {
       setIsLoadingHistory(true);
-      const grouped = getGroupedHistory(activeWorkspaceId || 'default');
+      const grouped = getGroupedHistory(activeWorkspaceId || 'default', userId);
       setGroupedHistory(grouped);
     } catch (error) {
       console.error('Failed to load history:', error);
@@ -49,7 +52,7 @@ export function SearchHistory({
     } finally {
       setIsLoadingHistory(false);
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, userId]);
 
   // Load history immediately after workspace store hydrates
   useEffect(() => {
@@ -67,14 +70,14 @@ export function SearchHistory({
 
   const handleClearHistory = () => {
     if (window.confirm('Are you sure you want to clear all search history for this workspace?')) {
-      clearSearchHistory(activeWorkspaceId || 'default');
+      clearSearchHistory(activeWorkspaceId || 'default', userId);
       setGroupedHistory({});
     }
   };
 
   const handleDeleteEntry = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    deleteHistoryEntry(id, activeWorkspaceId || 'default');
+    deleteHistoryEntry(id, activeWorkspaceId || 'default', userId);
     loadHistory();
   };
 

@@ -2,38 +2,41 @@
 
 import { useCallback } from 'react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
+import { useAuthStore } from '@/stores/authStore';
 import { getSearchHistory, saveSearchToHistory, deleteHistoryEntry, clearSearchHistory, getGroupedHistory } from '@/lib/storage';
 import type { SearchHistoryEntry } from '@/types';
 
 export function useSearchHistory() {
   const { activeWorkspaceId } = useWorkspaceStore();
+  const { user } = useAuthStore();
   const workspaceId = activeWorkspaceId || 'default';
+  const userId = user?.id;
 
   const getHistory = useCallback(() => {
-    return getSearchHistory(workspaceId);
-  }, [workspaceId]);
+    return getSearchHistory(workspaceId, userId);
+  }, [workspaceId, userId]);
 
   const saveSearch = useCallback(
     (entry: SearchHistoryEntry) => {
-      saveSearchToHistory(entry, workspaceId);
+      saveSearchToHistory(entry, workspaceId, userId);
     },
-    [workspaceId]
+    [workspaceId, userId]
   );
 
   const deleteEntry = useCallback(
     (id: string) => {
-      deleteHistoryEntry(id, workspaceId);
+      deleteHistoryEntry(id, workspaceId, userId);
     },
-    [workspaceId]
+    [workspaceId, userId]
   );
 
   const clearHistory = useCallback(() => {
-    clearSearchHistory(workspaceId);
-  }, [workspaceId]);
+    clearSearchHistory(workspaceId, userId);
+  }, [workspaceId, userId]);
 
   const getGrouped = useCallback(() => {
-    return getGroupedHistory(workspaceId);
-  }, [workspaceId]);
+    return getGroupedHistory(workspaceId, userId);
+  }, [workspaceId, userId]);
 
   return {
     getSearchHistory: getHistory,

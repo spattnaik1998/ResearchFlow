@@ -1,14 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { Button } from '@/components/Button';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 export default function ProfilePage() {
-  const router = useRouter();
   const { user, logout } = useAuthStore();
   const [displayName, setDisplayName] = useState('');
   const [isEditing, setIsEditing] = useState(false);
@@ -84,7 +82,10 @@ export default function ProfilePage() {
       console.error('Sign out error:', error);
     } finally {
       logout();
-      router.push('/auth/login');
+      // Hard navigation so middleware re-evaluates with cleared session cookies.
+      // router.push() is client-side and the middleware may still see a valid
+      // cookie in the same request cycle, redirecting back to /app.
+      window.location.href = '/auth/login';
     }
   }
 

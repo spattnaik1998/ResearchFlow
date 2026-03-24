@@ -3,6 +3,19 @@
 -- Date: Mar 2026
 
 -- ============================================================================
+-- STEP 0: Clean Up Orphaned Records (Critical!)
+-- ============================================================================
+
+-- Delete search_history entries with NULL user_id (orphaned records)
+DELETE FROM public.search_history WHERE user_id IS NULL;
+
+-- Delete knowledge_notes entries with NULL user_id (orphaned records)
+DELETE FROM public.knowledge_notes WHERE user_id IS NULL;
+
+-- Delete collections entries with NULL user_id (orphaned records)
+DELETE FROM public.collections WHERE user_id IS NULL;
+
+-- ============================================================================
 -- STEP 1: Add NOT NULL Constraints to Critical Columns
 -- ============================================================================
 
@@ -23,32 +36,89 @@ ALTER TABLE public.search_history
   ALTER COLUMN user_id SET NOT NULL;
 
 -- ============================================================================
--- STEP 2: Add Foreign Key Constraints (where missing)
+-- STEP 2: Fix Orphaned Workspace References & Add Foreign Key Constraints
 -- ============================================================================
 
--- knowledge_notes → user_workspaces (workspace_id must exist)
-ALTER TABLE public.knowledge_notes
-  ADD CONSTRAINT fk_knowledge_notes_workspace
-  FOREIGN KEY (workspace_id, user_id)
-  REFERENCES public.user_workspaces(id, user_id)
-  ON DELETE CASCADE
-  ON UPDATE CASCADE;
+-- Fix any records pointing to non-existent workspaces (e.g., 'default' workspace)
+-- Reassign them to the user's first workspace
+UPDATE public.knowledge_notes kn
+SET workspace_id = (
+  SELECT id FROM public.user_workspaces uw
+  WHERE uw.user_id = kn.user_id
+  ORDER BY created_at ASC
+  LIMIT 1
+)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.user_workspaces uw
+  WHERE uw.id = kn.workspace_id AND uw.user_id = kn.user_id
+);
 
--- collections → user_workspaces (workspace_id must exist)
-ALTER TABLE public.collections
-  ADD CONSTRAINT fk_collections_workspace
-  FOREIGN KEY (workspace_id, user_id)
-  REFERENCES public.user_workspaces(id, user_id)
-  ON DELETE CASCADE
-  ON UPDATE CASCADE;
+UPDATE public.collections c
+SET workspace_id = (
+  SELECT id FROM public.user_workspaces uw
+  WHERE uw.user_id = c.user_id
+  ORDER BY created_at ASC
+  LIMIT 1
+)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.user_workspaces uw
+  WHERE uw.id = c.workspace_id AND uw.user_id = c.user_id
+);
 
--- search_history → user_workspaces (workspace_id must exist)
-ALTER TABLE public.search_history
-  ADD CONSTRAINT fk_search_history_workspace
-  FOREIGN KEY (workspace_id, user_id)
-  REFERENCES public.user_workspaces(id, user_id)
-  ON DELETE CASCADE
-  ON UPDATE CASCADE;
+UPDATE public.search_history sh
+SET workspace_id = (
+  SELECT id FROM public.user_workspaces uw
+  WHERE uw.user_id = sh.user_id
+  ORDER BY created_at ASC
+  LIMIT 1
+)
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.user_workspaces uw
+  WHERE uw.id = sh.workspace_id AND uw.user_id = sh.user_id
+);
+
+-- Add foreign key constraints (only if not already present)
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.constraint_column_usage
+    WHERE table_name='knowledge_notes' AND constraint_name='fk_knowledge_notes_workspace'
+  ) THEN
+    ALTER TABLE public.knowledge_notes
+      ADD CONSTRAINT fk_knowledge_notes_workspace
+      FOREIGN KEY (workspace_id, user_id)
+      REFERENCES public.user_workspaces(id, user_id)
+      ON DELETE CASCADE
+      ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.constraint_column_usage
+    WHERE table_name='collections' AND constraint_name='fk_collections_workspace'
+  ) THEN
+    ALTER TABLE public.collections
+      ADD CONSTRAINT fk_collections_workspace
+      FOREIGN KEY (workspace_id, user_id)
+      REFERENCES public.user_workspaces(id, user_id)
+      ON DELETE CASCADE
+      ON UPDATE CASCADE;
+  END IF;
+END $$;
+
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.constraint_column_usage
+    WHERE table_name='search_history' AND constraint_name='fk_search_history_workspace'
+  ) THEN
+    ALTER TABLE public.search_history
+      ADD CONSTRAINT fk_search_history_workspace
+      FOREIGN KEY (workspace_id, user_id)
+      REFERENCES public.user_workspaces(id, user_id)
+      ON DELETE CASCADE
+      ON UPDATE CASCADE;
+  END IF;
+END $$;
 
 -- ============================================================================
 -- STEP 3: Add Additional Indexes for Query Performance & Security
@@ -62,52 +132,82 @@ CREATE INDEX IF NOT EXISTS idx_user_workspaces_user_id
 CREATE INDEX IF NOT EXISTS idx_knowledge_notes_user_workspace
   ON public.knowledge_notes(user_id, workspace_id);
 
+-- knowledge_notes: single user_id index for security queries
+CREATE INDEX IF NOT EXISTS idx_knowledge_notes_user_id
+  ON public.knowledge_notes(user_id);
+
 -- collections: composite index for user + workspace queries
 CREATE INDEX IF NOT EXISTS idx_collections_user_workspace
   ON public.collections(user_id, workspace_id);
+
+-- collections: single user_id index
+CREATE INDEX IF NOT EXISTS idx_collections_user_id
+  ON public.collections(user_id);
 
 -- search_history: composite index for user + workspace queries
 CREATE INDEX IF NOT EXISTS idx_search_history_user_workspace
   ON public.search_history(user_id, workspace_id);
 
+-- search_history: single user_id index
+CREATE INDEX IF NOT EXISTS idx_search_history_user_id
+  ON public.search_history(user_id);
+
 -- search_history: timestamp index for time-based queries
 CREATE INDEX IF NOT EXISTS idx_search_history_created_at
   ON public.search_history(created_at DESC);
 
--- note_tags: composite index for user-scoped tag queries
-CREATE INDEX IF NOT EXISTS idx_note_tags_user_tag
-  ON public.note_tags(tag) WHERE EXISTS (
-    SELECT 1 FROM public.knowledge_notes kn
-    WHERE kn.id = public.note_tags.note_id
-  );
+-- note_tags: simple tag index (RLS via FK to knowledge_notes enforces user ownership)
+CREATE INDEX IF NOT EXISTS idx_note_tags_tag
+  ON public.note_tags(tag);
 
 -- ============================================================================
 -- STEP 4: Add Check Constraints for Data Validation
 -- ============================================================================
 
 -- Prevent empty titles in knowledge_notes
-ALTER TABLE public.knowledge_notes
-  ADD CONSTRAINT chk_knowledge_notes_title_not_empty
-  CHECK (LENGTH(TRIM(title)) > 0);
+DO $$ BEGIN
+  ALTER TABLE public.knowledge_notes
+    ADD CONSTRAINT chk_knowledge_notes_title_not_empty
+    CHECK (LENGTH(TRIM(title)) > 0);
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'Constraint chk_knowledge_notes_title_not_empty already exists';
+END $$;
 
 -- Prevent empty workspace names
-ALTER TABLE public.user_workspaces
-  ADD CONSTRAINT chk_user_workspaces_name_not_empty
-  CHECK (LENGTH(TRIM(name)) > 0);
+DO $$ BEGIN
+  ALTER TABLE public.user_workspaces
+    ADD CONSTRAINT chk_user_workspaces_name_not_empty
+    CHECK (LENGTH(TRIM(name)) > 0);
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'Constraint chk_user_workspaces_name_not_empty already exists';
+END $$;
 
 -- Prevent negative position in collection_notes
-ALTER TABLE public.collection_notes
-  ADD CONSTRAINT chk_collection_notes_position_non_negative
-  CHECK (position >= 0);
+DO $$ BEGIN
+  ALTER TABLE public.collection_notes
+    ADD CONSTRAINT chk_collection_notes_position_non_negative
+    CHECK (position >= 0);
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'Constraint chk_collection_notes_position_non_negative already exists';
+END $$;
 
--- Prevent future timestamps in created_at
-ALTER TABLE public.knowledge_notes
-  ADD CONSTRAINT chk_knowledge_notes_created_at_not_future
-  CHECK (created_at <= now());
+-- Prevent future timestamps in created_at (knowledge_notes)
+DO $$ BEGIN
+  ALTER TABLE public.knowledge_notes
+    ADD CONSTRAINT chk_knowledge_notes_created_at_not_future
+    CHECK (created_at <= now());
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'Constraint chk_knowledge_notes_created_at_not_future already exists';
+END $$;
 
-ALTER TABLE public.search_history
-  ADD CONSTRAINT chk_search_history_created_at_not_future
-  CHECK (created_at <= now());
+-- Prevent future timestamps in created_at (search_history)
+DO $$ BEGIN
+  ALTER TABLE public.search_history
+    ADD CONSTRAINT chk_search_history_created_at_not_future
+    CHECK (created_at <= now());
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'Constraint chk_search_history_created_at_not_future already exists';
+END $$;
 
 -- ============================================================================
 -- STEP 5: Enforce RLS on Related Tables
@@ -183,7 +283,14 @@ CREATE TABLE IF NOT EXISTS public.audit_log (
 );
 
 -- Enable RLS on audit_log (users can only see their own records)
-ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+  ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+EXCEPTION WHEN others THEN
+  RAISE NOTICE 'RLS already enabled on audit_log';
+END $$;
+
+-- Create audit_log policy (drop first if exists)
+DROP POLICY IF EXISTS "Users can view own audit logs" ON public.audit_log;
 
 CREATE POLICY "Users can view own audit logs" ON public.audit_log
   FOR SELECT

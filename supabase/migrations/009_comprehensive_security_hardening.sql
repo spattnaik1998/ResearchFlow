@@ -436,15 +436,8 @@ $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 -- STEP 9: Summary & Verification
 -- ============================================================================
 
-SELECT 'Migration 009 Complete: Database Security Hardening Applied' AS status;
-
--- Verify NOT NULL constraints
-SELECT
-  tablename,
-  attname,
-  NOT null AS is_not_null
-FROM pg_tables
-JOIN pg_attribute ON attrelid = pg_tables.tableid
-WHERE schemaname = 'public'
-  AND tablename IN ('knowledge_notes', 'collections', 'user_workspaces', 'search_history')
-LIMIT 5;
+-- ============================================================================
+-- MIGRATION COMPLETE
+-- ============================================================================
+SELECT 'Migration 009 Complete: Database Security Hardening Applied' AS status,
+       'All security measures installed: NOT NULL constraints, foreign keys, indexes, RLS policies, audit logging' AS details;

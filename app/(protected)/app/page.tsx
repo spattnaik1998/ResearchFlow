@@ -288,14 +288,34 @@ ${questionsSection}
       return;
     }
 
+    // Validate user is authenticated
+    if (!user?.id) {
+      console.error('[Knowledge] User not authenticated', { user });
+      showError('Not authenticated. Please refresh and try again.');
+      return;
+    }
+
+    // Validate workspace is selected
+    if (!activeWorkspaceId) {
+      console.error('[Knowledge] No active workspace', { workspaces, activeWorkspaceId });
+      showError('No workspace selected. Please select a workspace first.');
+      return;
+    }
+
     setIsSavingToKnowledge(true);
 
     try {
       const noteContent = generateNoteContent();
 
+      console.log('[Knowledge] Saving note', {
+        userId: user.id,
+        workspaceId: activeWorkspaceId,
+        title: query,
+      });
+
       const newNote = await knowledgeDB.createNote({
-        workspace_id: activeWorkspaceId || 'default',
-        user_id: user?.id,
+        workspace_id: activeWorkspaceId,
+        user_id: user.id,
         title: query,
         content: noteContent,
         search_query: query,
@@ -307,16 +327,18 @@ ${questionsSection}
         },
       });
 
+      console.log('[Knowledge] Note saved successfully', { noteId: newNote.id });
       success(`✨ Note saved to Knowledge Base`);
 
       // Log note creation event
       const tagCount = (query.includes('react') ? 1 : 0) + (query.includes('typescript') ? 1 : 0);
-      logNoteCreationEvent(activeWorkspaceId || 'default', newNote.id, query, tagCount);
+      logNoteCreationEvent(activeWorkspaceId, newNote.id, query, tagCount);
 
       // Optionally add tags based on content
       if (query.includes('react')) await knowledgeDB.addTag(newNote.id, 'react');
       if (query.includes('typescript')) await knowledgeDB.addTag(newNote.id, 'typescript');
     } catch (err) {
+      console.error('[Knowledge] Error saving note', err);
       showError(
         err instanceof Error ? err.message : 'Failed to save note to Knowledge Base'
       );

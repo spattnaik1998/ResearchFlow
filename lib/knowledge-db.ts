@@ -23,6 +23,23 @@ export class KnowledgeDB {
       throw new Error('Supabase not configured. Cannot save note.')
     }
 
+    // Validate required fields
+    if (!note.user_id) {
+      console.error('[KnowledgeDB] Missing user_id for note creation', { note })
+      throw new Error('User ID is required to save a note. Please refresh the page and try again.')
+    }
+
+    if (!note.workspace_id) {
+      console.error('[KnowledgeDB] Missing workspace_id for note creation', { note })
+      throw new Error('Workspace ID is required to save a note.')
+    }
+
+    console.log('[KnowledgeDB] Creating note', {
+      title: note.title,
+      userId: note.user_id,
+      workspaceId: note.workspace_id,
+    })
+
     const { data, error } = await supabase
       .from('knowledge_notes')
       .insert({
@@ -34,7 +51,18 @@ export class KnowledgeDB {
       .select()
       .single()
 
-    if (error) throw new Error(`Failed to create note: ${error.message}`)
+    if (error) {
+      console.error('[KnowledgeDB] Insert failed', {
+        error: error.message,
+        code: error.code,
+        details: error.details,
+        userId: note.user_id,
+        workspaceId: note.workspace_id,
+      })
+      throw new Error(`Failed to create note: ${error.message}`)
+    }
+
+    console.log('[KnowledgeDB] Note created successfully', { id: data.id })
     return data as KnowledgeNote
   }
 

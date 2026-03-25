@@ -75,17 +75,34 @@ export default function ProfilePage() {
   }
 
   async function handleLogout() {
+    console.log('[Logout] Starting logout process');
     try {
       const supabase = createSupabaseClient();
-      await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.warn('[Logout] signOut returned error:', error);
+        // Even if signOut fails on server, we'll still clear local state
+        // This prevents user being stuck on the page
+      } else {
+        console.log('[Logout] signOut succeeded');
+      }
     } catch (error) {
-      console.error('Sign out error:', error);
+      console.error('[Logout] Exception during signOut:', error);
+      // Continue with logout even if there's an exception
     } finally {
+      // Clear auth store to remove user from client-side state
+      console.log('[Logout] Clearing auth store');
       logout();
+
       // Hard navigation so middleware re-evaluates with cleared session cookies.
       // router.push() is client-side and the middleware may still see a valid
       // cookie in the same request cycle, redirecting back to /app.
-      window.location.href = '/auth/login';
+      // Add a small delay to ensure logout() has propagated
+      setTimeout(() => {
+        console.log('[Logout] Navigating to /auth/login');
+        window.location.href = '/auth/login';
+      }, 100);
     }
   }
 

@@ -26,18 +26,33 @@ export function UserMenu() {
   if (!user) return null
 
   async function handleLogout() {
+    console.log('[UserMenu] Starting logout process')
     setIsOpen(false)
     try {
       const supabase = createSupabaseClient()
-      await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut()
+
+      if (error) {
+        console.warn('[UserMenu] signOut returned error:', error)
+        // Even if signOut fails on server, we'll still clear local state
+      } else {
+        console.log('[UserMenu] signOut succeeded')
+      }
     } catch (error) {
-      console.error('Sign out error:', error)
+      console.error('[UserMenu] Exception during signOut:', error)
+      // Continue with logout even if there's an exception
     } finally {
+      console.log('[UserMenu] Clearing auth store')
       logout()
+
       // Hard navigation so middleware re-evaluates with cleared session cookies.
       // router.push() is client-side and the middleware may still see a valid
       // cookie in the same request cycle, redirecting back to /app.
-      window.location.href = '/auth/login'
+      // Add a small delay to ensure logout() has propagated
+      setTimeout(() => {
+        console.log('[UserMenu] Navigating to /auth/login')
+        window.location.href = '/auth/login'
+      }, 100)
     }
   }
 

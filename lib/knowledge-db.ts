@@ -34,12 +34,6 @@ export class KnowledgeDB {
       throw new Error('Workspace ID is required to save a note.')
     }
 
-    console.log('[KnowledgeDB] Creating note', {
-      title: note.title,
-      userId: note.user_id,
-      workspaceId: note.workspace_id,
-    })
-
     const { data, error } = await supabase
       .from('knowledge_notes')
       .insert({
@@ -62,7 +56,6 @@ export class KnowledgeDB {
       throw new Error(`Failed to create note: ${error.message}`)
     }
 
-    console.log('[KnowledgeDB] Note created successfully', { id: data.id })
     return data as KnowledgeNote
   }
 

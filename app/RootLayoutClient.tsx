@@ -179,15 +179,11 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = listenToAuthEvents(channel, (message) => {
       if (message.type === 'SIGNED_OUT') {
-        console.log('[RootLayoutClient] Received SIGNED_OUT from another tab');
-        // Another tab logged out - sync this tab
+        // Another tab logged out — sync this tab's state and redirect
         useWorkspaceStore.getState().clearForNewUser();
         clearClientSession();
         logout();
-
-        // Redirect to login page with logout indicator
         setTimeout(() => {
-          console.log('[RootLayoutClient] Redirecting to login after cross-tab logout');
           window.location.href = '/auth/login?logout=true';
         }, 100);
       }

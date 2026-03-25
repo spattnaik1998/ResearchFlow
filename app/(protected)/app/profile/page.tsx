@@ -75,16 +75,12 @@ export default function ProfilePage() {
   }
 
   async function handleLogout() {
-    console.log('[Logout] Starting logout process');
     try {
-      // Step 1: Clear all auth-related localStorage keys immediately
-      // This prevents re-hydration of stale auth state
-      console.log('[Logout] Clearing localStorage');
+      // Clear all auth-related localStorage keys to prevent re-hydration of stale state
       localStorage.removeItem('researchflow_last_user_id');
-      localStorage.removeItem('auth-store'); // Zustand persist key
+      localStorage.removeItem('auth-store');
 
-      // Step 2: Clear all workspace-related localStorage
-      // Pattern: voicesearch_history_${userId}_${workspaceId}
+      // Clear workspace-scoped history keys
       const allKeys = Object.keys(localStorage);
       for (const key of allKeys) {
         if (key.startsWith('voicesearch_history_')) {
@@ -92,52 +88,36 @@ export default function ProfilePage() {
         }
       }
 
-      // Step 3: Clear sessionStorage to remove any session tokens
-      console.log('[Logout] Clearing sessionStorage');
+      // Clear sessionStorage
       sessionStorage.clear();
 
-      // Step 4: Clear auth store to remove user from client-side state
-      console.log('[Logout] Clearing auth store');
+      // Clear auth store
       logout();
 
-      // Step 5: Call server-side logout endpoint to invalidate session cookies
-      console.log('[Logout] Calling server logout endpoint');
+      // Invalidate server-side session cookies
       try {
         await fetch('/api/auth/logout', {
           method: 'POST',
-          credentials: 'include', // Include cookies so Supabase can clear them
+          credentials: 'include',
         });
-      } catch (error) {
-        console.warn('[Logout] Server logout failed:', error);
-        // Continue anyway - local cleanup is complete
+      } catch {
+        // Continue anyway — local cleanup is already complete
       }
 
-      // Step 6: Clear any Supabase client-side cache
-      // Supabase stores auth state in memory, so creating a new client
-      // won't help, but we can try to clear it explicitly
+      // Supabase client-side session clear
       const supabase = createSupabaseClient();
       try {
-        // Attempt to clear client session
-        const { error } = await supabase.auth.signOut({ scope: 'global' });
-        if (error) {
-          console.warn('[Logout] Client signOut returned error:', error);
-        } else {
-          console.log('[Logout] Client signOut succeeded');
-        }
-      } catch (error) {
-        console.warn('[Logout] Client signOut exception:', error);
+        await supabase.auth.signOut({ scope: 'global' });
+      } catch {
+        // Non-fatal — session cookies are already cleared server-side
       }
 
-      // Step 7: Hard navigation to login
-      // Use hard navigation so middleware re-evaluates with cleared session state
-      // Add small delay to ensure all async operations complete
+      // Hard navigation so middleware re-evaluates with cleared session
       setTimeout(() => {
-        console.log('[Logout] Navigating to /auth/login');
         window.location.href = '/auth/login?logout=true';
       }, 200);
     } catch (error) {
-      console.error('[Logout] Exception during logout:', error);
-      // Even on error, attempt to clear state and redirect
+      console.error('Logout failed:', error);
       logout();
       setTimeout(() => {
         window.location.href = '/auth/login?error=logout_failed';

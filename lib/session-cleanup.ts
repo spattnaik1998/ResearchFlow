@@ -23,7 +23,6 @@ export function clearClientSession() {
     // Clear sessionStorage (temporary session data)
     sessionStorage.clear()
 
-    console.log('[SessionCleanup] Client session cleared')
   } catch (error) {
     console.warn('[SessionCleanup] Error clearing client session:', error)
   }

@@ -307,12 +307,6 @@ ${questionsSection}
     try {
       const noteContent = generateNoteContent();
 
-      console.log('[Knowledge] Saving note', {
-        userId: user.id,
-        workspaceId: activeWorkspaceId,
-        title: query,
-      });
-
       const newNote = await knowledgeDB.createNote({
         workspace_id: activeWorkspaceId,
         user_id: user.id,
@@ -327,7 +321,6 @@ ${questionsSection}
         },
       });
 
-      console.log('[Knowledge] Note saved successfully', { noteId: newNote.id });
       success(`✨ Note saved to Knowledge Base`);
 
       // Log note creation event

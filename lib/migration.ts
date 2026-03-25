@@ -27,7 +27,6 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
 
   // Skip if already migrated
   if (isMigrationComplete(userId)) {
-    console.log('Migration already completed for user', userId)
     return
   }
 
@@ -60,7 +59,6 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
         return
       }
 
-      console.log(`Migrated ${workspaces.length} workspace(s) for user ${userId}`)
     }
 
     // Step 2: Update orphaned knowledge_notes to be associated with user
@@ -79,7 +77,6 @@ export async function migrateUserData(userId: string, workspaces: Workspace[]): 
 
     // Step 3: Mark migration as complete
     localStorage.setItem(`migration_complete_${userId}`, 'true')
-    console.log('Data migration completed successfully for user', userId)
   } catch (error) {
     console.error('Data migration error:', error)
     throw error
@@ -216,7 +213,6 @@ export async function migrateSearchHistory(userId: string, workspaces: Workspace
     const cloudHistoryMap = await loadAllHistory(userId)
 
     if (cloudHistoryMap.size === 0) {
-      console.log('No cloud history to migrate')
       return
     }
 
@@ -245,7 +241,6 @@ export async function migrateSearchHistory(userId: string, workspaces: Workspace
 
       // Write back to localStorage
       localStorage.setItem(historyKey, JSON.stringify(finalEntries))
-      console.log(`Migrated ${cloudEntries.length} history entry(ies) for workspace ${wsId}`)
     })
   } catch (error) {
     console.error('Error migrating search history:', error)

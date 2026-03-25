@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { searchWithSerper } from '@/lib/serper';
 import { getUser } from '@/lib/auth-helpers';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { searchQuerySchema } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,16 +21,22 @@ export async function POST(request: NextRequest) {
         { error: 'Rate limit exceeded. You have 30 searches per hour.' },
         {
           status: 429,
-          headers: { 'Retry-After': Math.ceil((rateLimitResult.resetAt.getTime() - Date.now()) / 1000).toString() },
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetAt.getTime() - Date.now()) / 1000
+            ).toString(),
+          },
         }
       );
     }
 
     const { query } = await request.json();
 
-    if (!query || query.trim().length === 0) {
+    // Validate with Zod — enforces min 2, max 500 chars, trims whitespace
+    const queryParse = searchQuerySchema.safeParse(query);
+    if (!queryParse.success) {
       return NextResponse.json(
-        { error: 'Query is required' },
+        { error: queryParse.error.issues[0]?.message || 'Invalid query' },
         { status: 400 }
       );
     }
@@ -42,10 +49,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const results = await searchWithSerper(query, apiKey);
+    // Use the validated (trimmed, length-capped) query
+    const validatedQuery = queryParse.data;
+    const results = await searchWithSerper(validatedQuery, apiKey);
     return NextResponse.json({
       results,
-      query,
+      query: validatedQuery,
     });
   } catch (error) {
     console.error('Search error:', error);

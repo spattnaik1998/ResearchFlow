@@ -62,6 +62,31 @@ export const magicLinkSchema = z.object({
 
 export type MagicLinkInput = z.infer<typeof magicLinkSchema>
 
+// Search query validation
+// Max 500 chars: prevents unbounded LLM context, not a meaningful research query limit
+// Min 2 chars: prevents trivially short queries from hitting paid APIs
+export const searchQuerySchema = z
+  .string()
+  .min(2, 'Query must be at least 2 characters')
+  .max(500, 'Query must be 500 characters or fewer')
+  .transform((q) => q.trim())
+
+export type SearchQueryInput = z.infer<typeof searchQuerySchema>
+
+// Search results item validation (used before feeding to LLM)
+export const searchResultItemSchema = z.object({
+  title: z.string().max(500).optional().default(''),
+  description: z.string().max(1000).optional().default(''),
+  url: z.string().url().optional().default(''),
+})
+
+export const searchResultsSchema = z
+  .array(searchResultItemSchema)
+  .min(1, 'At least one result is required')
+  .max(20, 'Too many results') // Prevent context overflow
+
+export type SearchResultItem = z.infer<typeof searchResultItemSchema>
+
 // Password strength checker (for UI feedback)
 export interface PasswordRequirements {
   minLength: boolean

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { summarizeSearchResults } from '@/lib/openai';
 import { getUser } from '@/lib/auth-helpers';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { searchResultsSchema } from '@/lib/validation';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,16 +21,23 @@ export async function POST(request: NextRequest) {
         { error: 'Rate limit exceeded. You have 20 summaries per hour.' },
         {
           status: 429,
-          headers: { 'Retry-After': Math.ceil((rateLimitResult.resetAt.getTime() - Date.now()) / 1000).toString() },
+          headers: {
+            'Retry-After': Math.ceil(
+              (rateLimitResult.resetAt.getTime() - Date.now()) / 1000
+            ).toString(),
+          },
         }
       );
     }
 
     const { results } = await request.json();
 
-    if (!results || !Array.isArray(results)) {
+    // Validate structure with Zod — ensures results is an array of expected shape,
+    // caps to 20 items, and enforces per-field length limits before LLM call.
+    const resultsParse = searchResultsSchema.safeParse(results);
+    if (!resultsParse.success) {
       return NextResponse.json(
-        { error: 'Results array is required' },
+        { error: resultsParse.error.issues[0]?.message || 'Invalid results' },
         { status: 400 }
       );
     }
@@ -42,7 +50,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const summary = await summarizeSearchResults(results, apiKey);
+    const summary = await summarizeSearchResults(resultsParse.data, apiKey);
     return NextResponse.json(summary);
   } catch (error) {
     console.error('Summarize error:', error);

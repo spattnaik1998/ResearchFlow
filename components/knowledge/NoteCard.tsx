@@ -27,7 +27,7 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
   });
 
   const handleClick = () => {
-    router.push(`/knowledge/${note.id}`);
+    router.push(`/app/knowledge/${note.id}`);
   };
 
   const handleDelete = (e: React.MouseEvent) => {

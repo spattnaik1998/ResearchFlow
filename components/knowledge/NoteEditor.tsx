@@ -35,7 +35,7 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
   const { activeWorkspaceId } = useWorkspaceStore();
   const { success, error: showError } = useToast();
 
-  const workspaceId = activeWorkspaceId || 'default';
+  const workspaceId = activeWorkspaceId || '';
 
   const loadNote = useCallback(async () => {
     setLoading(true);
@@ -126,7 +126,7 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
 
       success('✨ Note saved successfully');
       setTimeout(() => {
-        router.push(`/knowledge/${savedNote.id}`);
+        router.push(`/app/knowledge/${savedNote.id}`);
       }, 500);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to save note');
@@ -143,7 +143,7 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
       await knowledgeDB.deleteNote(noteId);
       success('Note deleted');
       setTimeout(() => {
-        router.push('/knowledge');
+        router.push('/app/knowledge');
       }, 500);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to delete note');
@@ -166,7 +166,7 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <button
-            onClick={() => router.push('/knowledge')}
+            onClick={() => router.push('/app/knowledge')}
             className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-2xl leading-none"
           >
             ← Back

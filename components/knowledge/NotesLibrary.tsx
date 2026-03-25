@@ -24,7 +24,7 @@ export function NotesLibrary({ isOpen = true, onClose }: NotesLibraryProps) {
   const { activeWorkspaceId } = useWorkspaceStore();
   const router = useRouter();
 
-  const workspaceId = activeWorkspaceId || 'default';
+  const workspaceId = activeWorkspaceId || '';
 
   const loadNotes = useCallback(async () => {
     setLoading(true);
@@ -93,7 +93,7 @@ export function NotesLibrary({ isOpen = true, onClose }: NotesLibraryProps) {
   });
 
   const handleNewNote = () => {
-    router.push('/knowledge/new');
+    router.push('/app/knowledge/new');
     onClose?.();
   };
 

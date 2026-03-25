@@ -447,9 +447,9 @@ export default function SettingsPage() {
                 </p>
               </div>
 
-              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                <p className="text-sm text-amber-900 dark:text-amber-200">
-                  ⚠️ Your data is stored locally in your browser. No data is sent to servers unless you explicitly enable Supabase integration (Phase 3).
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-900 dark:text-blue-200">
+                  ℹ️ Your search history, notes, and analytics data are securely stored in Supabase cloud with encryption at rest and in transit. All data is protected by Row-Level Security policies.
                 </p>
               </div>
             </div>

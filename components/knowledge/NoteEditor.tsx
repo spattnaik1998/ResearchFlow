@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { knowledgeDB } from '@/lib/knowledge-db';
+import { createSupabaseClient } from '@/lib/supabase';
 import { useToast } from '@/lib/hooks';
 import type { KnowledgeNote } from '@/types';
 import { Button } from '@/components/Button';
@@ -89,38 +90,45 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
     setSaving(true);
 
     try {
+      // Resolve the current user before any DB write.
+      // This is required for new note creation (user_id NOT NULL constraint)
+      // and also serves as an auth check before updating existing notes.
+      const supabase = createSupabaseClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        showError('Not authenticated. Please refresh and try again.');
+        return;
+      }
+      const userId = session.user.id;
+
       let savedNote: KnowledgeNote;
 
       if (noteId && note) {
-        // Update existing
-        savedNote = await knowledgeDB.updateNote(noteId, {
-          title,
-          content,
-        });
+        // Update existing note
+        savedNote = await knowledgeDB.updateNote(noteId, { title, content });
 
-        // Update tags (remove old, add new)
+        // Diff tags and apply removes + adds in parallel (not serial)
         const oldTags = await knowledgeDB.getNoteTags(noteId);
-        for (const oldTag of oldTags) {
-          if (!tags.includes(oldTag)) {
-            await knowledgeDB.removeTag(noteId, oldTag);
-          }
-        }
-        for (const tag of tags) {
-          if (!oldTags.includes(tag)) {
-            await knowledgeDB.addTag(noteId, tag);
-          }
-        }
+        await Promise.all([
+          ...oldTags
+            .filter((t) => !tags.includes(t))
+            .map((t) => knowledgeDB.removeTag(noteId, t)),
+          ...tags
+            .filter((t) => !oldTags.includes(t))
+            .map((t) => knowledgeDB.addTag(noteId, t)),
+        ]);
       } else {
-        // Create new
+        // Create new note — user_id is now always provided
         savedNote = await knowledgeDB.createNote({
           workspace_id: workspaceId,
+          user_id: userId,
           title,
           content,
         });
 
-        // Add tags
-        for (const tag of tags) {
-          await knowledgeDB.addTag(savedNote.id, tag);
+        // Add all tags in parallel
+        if (tags.length > 0) {
+          await Promise.all(tags.map((tag) => knowledgeDB.addTag(savedNote.id, tag)));
         }
       }
 

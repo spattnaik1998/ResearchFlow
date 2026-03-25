@@ -11,7 +11,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { migrateUserData, isMigrationComplete, loadCloudDataOnLogin } from '@/lib/migration';
 import { clearAllHistoryKeysForUser } from '@/lib/storage';
-import { createAuthChannel, listenToAuthEvents, broadcastAuthEvent, type AuthChannelMessage } from '@/lib/broadcast-channel';
+import { createAuthChannel, listenToAuthEvents, broadcastAuthEvent, TAB_ID, type AuthChannelMessage } from '@/lib/broadcast-channel';
 import { clearClientSession } from '@/lib/session-cleanup';
 
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
@@ -178,8 +178,13 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
     if (!channel) return;
 
     const unsubscribe = listenToAuthEvents(channel, (message) => {
+      // Skip messages sent by this same tab — prevents the self-broadcast race
+      // condition where the initiating tab would receive its own SIGNED_OUT and
+      // fire a competing redirect (100ms) before its own logout handler (200ms).
+      if (message.tabId === TAB_ID) return;
+
       if (message.type === 'SIGNED_OUT') {
-        // Another tab logged out — sync this tab's state and redirect
+        // A different tab logged out — sync this tab's state and redirect
         useWorkspaceStore.getState().clearForNewUser();
         clearClientSession();
         logout();

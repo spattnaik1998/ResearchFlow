@@ -30,15 +30,13 @@ export function NotesLibrary({ isOpen = true, onClose }: NotesLibraryProps) {
     setLoading(true);
     setError(null);
     try {
-      const data = await knowledgeDB.getNotes(workspaceId);
-      setNotes(data);
-
-      // Load tags for each note
+      // Single query fetches notes + tags together (eliminates N+1 round-trips)
+      const data = await knowledgeDB.getNotesWithTags(workspaceId);
       const tagsMap = new Map<string, string[]>();
-      for (const note of data) {
-        const tags = await knowledgeDB.getNoteTags(note.id);
-        tagsMap.set(note.id, tags);
-      }
+      data.forEach((note) => {
+        tagsMap.set(note.id, (note.note_tags ?? []).map((t) => t.tag));
+      });
+      setNotes(data);
       setNoteTags(tagsMap);
     } catch (err) {
       const message =

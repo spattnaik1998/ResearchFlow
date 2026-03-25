@@ -82,6 +82,35 @@ export class KnowledgeDB {
     return (data || []) as KnowledgeNote[]
   }
 
+  /**
+   * Fetch notes together with their tags in a single query.
+   * Use this instead of getNotes() + getNoteTags() in a loop (N+1 problem).
+   * Caps at 200 most-recent notes to prevent unbounded data transfer.
+   */
+  async getNotesWithTags(
+    workspaceId: string
+  ): Promise<Array<KnowledgeNote & { note_tags: { tag: string }[] }>> {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    let query = supabase
+      .from('knowledge_notes')
+      .select('*, note_tags(tag)')
+      .eq('workspace_id', workspaceId)
+      .order('created_at', { ascending: false })
+      .limit(200)
+
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { data, error } = await query
+    if (error) throw new Error(`Failed to fetch notes: ${error.message}`)
+    return (data || []) as Array<KnowledgeNote & { note_tags: { tag: string }[] }>
+  }
+
   async getNote(id: string): Promise<KnowledgeNote> {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
       throw new Error('Supabase not configured')

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { getUser } from '@/lib/auth-helpers';
+import { getUser, validateWorkspaceOwnership } from '@/lib/auth-helpers';
 import { formatNotesAsCSV, formatAnalyticsAsCSV, type AnalyticsRow } from '@/lib/export-formatters';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +27,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Supabase not configured' },
         { status: 500 }
+      );
+    }
+
+    // Validate that user owns this workspace
+    const serverSupabase = await createSupabaseServerClient();
+    const ownsWorkspace = await validateWorkspaceOwnership(serverSupabase, workspace_id, user.id);
+    if (!ownsWorkspace) {
+      return NextResponse.json(
+        { error: 'Workspace not found' },
+        { status: 404 }
       );
     }
 

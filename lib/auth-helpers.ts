@@ -38,5 +38,32 @@ export async function getUser() {
   return user
 }
 
+/**
+ * Validate that a user owns a workspace (defense-in-depth check)
+ * RLS handles this, but we add application-level validation
+ */
+export async function validateWorkspaceOwnership(
+  supabase: ReturnType<typeof createServerClient>,
+  workspaceId: string | null | undefined,
+  userId: string | null | undefined
+): Promise<boolean> {
+  if (!workspaceId || !userId) {
+    return false
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('user_workspaces')
+      .select('id')
+      .eq('id', workspaceId)
+      .eq('user_id', userId)
+      .single()
+
+    return !error && !!data
+  } catch {
+    return false
+  }
+}
+
 // getAuthErrorMessage moved to lib/auth-errors.ts for client-side usage
 // createSupabaseClient is in lib/supabase.ts for client-side usage

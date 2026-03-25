@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchWithSerper } from '@/lib/serper';
 import { getUser } from '@/lib/auth-helpers';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
@@ -9,6 +10,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Check rate limit before processing
+    const rateLimitResult = await checkRateLimit(user.id, 'search');
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. You have 30 searches per hour.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': Math.ceil((rateLimitResult.resetAt.getTime() - Date.now()) / 1000).toString() },
+        }
       );
     }
 

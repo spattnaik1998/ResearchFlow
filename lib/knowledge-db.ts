@@ -354,9 +354,17 @@ export class KnowledgeDB {
       throw new Error('Supabase not configured')
     }
 
+    // Get current user to auto-assign user_id (don't trust caller)
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    if (!userId) {
+      throw new Error('User ID is required to create a collection')
+    }
+
     const { data, error } = await supabase
       .from('collections')
-      .insert(collection)
+      .insert({ ...collection, user_id: userId })
       .select()
       .single()
 
@@ -367,11 +375,21 @@ export class KnowledgeDB {
   async getCollections(workspaceId: string): Promise<Collection[]> {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return []
 
-    const { data, error } = await supabase
+    // Get current user for defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    let query = supabase
       .from('collections')
       .select('*')
       .eq('workspace_id', workspaceId)
-      .order('created_at', { ascending: false })
+
+    // Add user_id filter for defense-in-depth (RLS is primary defense)
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: false })
 
     if (error) throw new Error(`Failed to fetch collections: ${error.message}`)
     return (data || []) as Collection[]
@@ -380,10 +398,21 @@ export class KnowledgeDB {
   async deleteCollection(id: string): Promise<void> {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return
 
-    const { error } = await supabase
+    // Get current user for defense-in-depth filtering
+    const { data: { session } } = await supabase.auth.getSession()
+    const userId = session?.user?.id
+
+    let query = supabase
       .from('collections')
       .delete()
       .eq('id', id)
+
+    // Add user_id filter for defense-in-depth (RLS is primary defense)
+    if (userId) {
+      query = query.eq('user_id', userId)
+    }
+
+    const { error } = await query
 
     if (error) throw new Error(`Failed to delete collection: ${error.message}`)
   }

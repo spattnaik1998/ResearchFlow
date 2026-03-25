@@ -22,6 +22,9 @@ export async function summarizeSearchResults(
   results: Array<{ title: string; description: string; url: string }>,
   apiKey: string
 ): Promise<SummaryResult> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 30000) // 30 second timeout
+
   try {
     // Prepare context from search results
     const context = results
@@ -51,6 +54,7 @@ export async function summarizeSearchResults(
         temperature: 0.7,
         max_tokens: 500,
       }),
+      signal: controller.signal,
     });
 
     if (!response.ok) {
@@ -72,7 +76,13 @@ export async function summarizeSearchResults(
       wordCount: parsed.summary?.split(/\s+/).length || 0,
     };
   } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('OpenAI summarize timeout: request exceeded 30 seconds');
+      throw new Error('Summarization request timed out. Please try again.');
+    }
     console.error('OpenAI summarize error:', error);
     throw error;
+  } finally {
+    clearTimeout(timeout);
   }
 }

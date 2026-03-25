@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase-server';
-import { getUser } from '@/lib/auth-helpers';
+import { getUser, validateWorkspaceOwnership } from '@/lib/auth-helpers';
 
 type TimeRange = '7d' | '30d' | '90d';
 
@@ -39,6 +39,17 @@ export async function GET(request: NextRequest) {
     const isGlobalView = !workspaceId || workspaceId === 'all';
 
     const supabase = await createSupabaseServerClient();
+
+    // Validate workspace ownership if viewing a specific workspace
+    if (!isGlobalView && workspaceId) {
+      const ownsWorkspace = await validateWorkspaceOwnership(supabase, workspaceId, user.id);
+      if (!ownsWorkspace) {
+        return NextResponse.json(
+          { error: 'Workspace not found' },
+          { status: 404 }
+        );
+      }
+    }
 
     // Fetch dashboard data - all queries in parallel
     // Build queries conditionally based on whether we're viewing all workspaces or a specific one
@@ -113,6 +124,7 @@ export async function GET(request: NextRequest) {
     ]);
 
     if (dailyError || topError || statsError || hourlyError) {
+      // Log full error details server-side only, don't expose to client
       console.error('Analytics query errors:', {
         dailyError: dailyError ? { message: dailyError.message, code: dailyError.code } : null,
         topError: topError ? { message: topError.message, code: topError.code } : null,
@@ -120,15 +132,7 @@ export async function GET(request: NextRequest) {
         hourlyError: hourlyError ? { message: hourlyError.message, code: hourlyError.code } : null,
       });
       return NextResponse.json(
-        {
-          error: 'Failed to fetch analytics data',
-          details: {
-            daily: dailyError?.message,
-            queries: topError?.message,
-            stats: statsError?.message,
-            hourly: hourlyError?.message,
-          }
-        },
+        { error: 'Failed to fetch analytics data' },
         { status: 500 }
       );
     }

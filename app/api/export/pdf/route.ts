@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { getUser } from '@/lib/auth-helpers';
+import { getUser, validateWorkspaceOwnership } from '@/lib/auth-helpers';
 import { generatePDFHTML, type ExportableNote } from '@/lib/export-formatters';
+import { createSupabaseServerClient } from '@/lib/supabase-server';
+
+/**
+ * Escape HTML special characters to prevent XSS when content is embedded in HTML
+ */
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +41,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Supabase not configured' },
         { status: 500 }
+      );
+    }
+
+    // Validate that user owns this workspace
+    const serverSupabase = await createSupabaseServerClient();
+    const ownsWorkspace = await validateWorkspaceOwnership(serverSupabase, workspace_id, user.id);
+    if (!ownsWorkspace) {
+      return NextResponse.json(
+        { error: 'Workspace not found' },
+        { status: 404 }
       );
     }
 
@@ -75,19 +100,19 @@ export async function POST(request: NextRequest) {
     if (formattedNotes.length === 1) {
       const note = formattedNotes[0];
       htmlContent = `
-        <h1>${note.title}</h1>
-        ${note.tags && note.tags.length > 0 ? `<p><strong>Tags:</strong> ${note.tags.map((t) => `<code>${t}</code>`).join(', ')}</p>` : ''}
+        <h1>${escapeHtml(note.title)}</h1>
+        ${note.tags && note.tags.length > 0 ? `<p><strong>Tags:</strong> ${note.tags.map((t) => `<code>${escapeHtml(t)}</code>`).join(', ')}</p>` : ''}
         ${include_timestamps ? `<p><em>Created on ${new Date(note.created_at).toLocaleString()}</em></p>` : ''}
-        <div>${note.content}</div>
+        <div>${escapeHtml(note.content)}</div>
       `;
     } else {
       htmlContent = formattedNotes
         .map(
           (note) => `
-        <h2>${note.title}</h2>
-        ${note.tags && note.tags.length > 0 ? `<p><strong>Tags:</strong> ${note.tags.map((t) => `<code>${t}</code>`).join(', ')}</p>` : ''}
+        <h2>${escapeHtml(note.title)}</h2>
+        ${note.tags && note.tags.length > 0 ? `<p><strong>Tags:</strong> ${note.tags.map((t) => `<code>${escapeHtml(t)}</code>`).join(', ')}</p>` : ''}
         ${include_timestamps ? `<p><em>Created on ${new Date(note.created_at).toLocaleString()}</em></p>` : ''}
-        <div>${note.content}</div>
+        <div>${escapeHtml(note.content)}</div>
         <hr>
       `
         )

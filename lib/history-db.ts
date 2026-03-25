@@ -22,10 +22,16 @@ export async function saveHistoryEntry(
     const supabase = createSupabaseClient()
 
     // Map entry format to database format
+    // Workspace ID must be provided - don't save to 'default' (it was removed in migration 007)
+    if (!entry.workspaceId) {
+      console.warn('Attempted to save history without workspace_id', { userId })
+      return
+    }
+
     const dbEntry = {
       id: entry.id,
       user_id: userId,
-      workspace_id: entry.workspaceId || 'default',
+      workspace_id: entry.workspaceId,
       query: entry.query,
       results: entry.results,
       summary: entry.summary,

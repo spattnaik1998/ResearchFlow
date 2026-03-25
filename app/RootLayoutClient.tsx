@@ -11,6 +11,7 @@ import { useNotificationStore } from '@/stores/notificationStore';
 import { createSupabaseClient } from '@/lib/supabase';
 import { migrateUserData, isMigrationComplete, loadCloudDataOnLogin } from '@/lib/migration';
 import { clearAllHistoryKeysForUser } from '@/lib/storage';
+import { createAuthChannel, listenToAuthEvents, broadcastAuthEvent, type AuthChannelMessage } from '@/lib/broadcast-channel';
 
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const [historyCount, setHistoryCount] = useState(0);
@@ -155,12 +156,43 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
           useWorkspaceStore.getState().clearForNewUser();
           localStorage.removeItem('researchflow_last_user_id');
           logout();
+
+          // Broadcast logout to other tabs so they also logout
+          const channel = createAuthChannel();
+          const message: AuthChannelMessage = {
+            type: 'SIGNED_OUT',
+            timestamp: Date.now(),
+          };
+          broadcastAuthEvent(channel, message);
         }
       }
     );
 
     return () => subscription?.unsubscribe();
   }, [setUser, logout, runMigrationOnce, loadCloudData, _hasHydrated]);
+
+  // Listen for cross-tab auth events (e.g., logout in another tab)
+  useEffect(() => {
+    const channel = createAuthChannel();
+    if (!channel) return;
+
+    const unsubscribe = listenToAuthEvents(channel, (message) => {
+      if (message.type === 'SIGNED_OUT') {
+        // Another tab logged out - sync this tab
+        useWorkspaceStore.getState().clearForNewUser();
+        localStorage.removeItem('researchflow_last_user_id');
+        logout();
+
+        // Redirect to login page
+        window.location.href = '/auth/login';
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      channel?.close();
+    };
+  }, [logout]);
 
   // Global keyboard shortcuts
   useKeyboardShortcuts({

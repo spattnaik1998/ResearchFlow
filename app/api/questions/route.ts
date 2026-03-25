@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUser } from '@/lib/auth-helpers';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 /**
  * Extract JSON from markdown code blocks or raw JSON string
@@ -22,6 +23,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
+      );
+    }
+
+    // Check rate limit before processing
+    const rateLimitResult = await checkRateLimit(user.id, 'questions');
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Please try again later.' },
+        {
+          status: 429,
+          headers: { 'Retry-After': Math.ceil((rateLimitResult.resetAt.getTime() - Date.now()) / 1000).toString() },
+        }
       );
     }
 
@@ -81,8 +94,9 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Questions generation error:', error);
+    // Don't expose error details to client
     return NextResponse.json(
-      { error: 'Failed to generate questions', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to generate questions' },
       { status: 500 }
     );
   }

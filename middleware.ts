@@ -80,11 +80,25 @@ export async function middleware(request: NextRequest) {
       loginUrl.searchParams.set('next', pathname)
       return NextResponse.redirect(loginUrl)
     }
+
+    // Add cache-busting headers to authenticated responses
+    // Prevents browser/CDN from caching authenticated content
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
   }
 
   // Redirect authenticated users away from auth pages (except reset password form)
   if (pathname.startsWith('/auth') && user && pathname !== '/auth/reset-password') {
     return NextResponse.redirect(new URL('/app', request.url))
+  }
+
+  // Add cache-busting headers to all responses to prevent caching of authenticated state
+  // This is especially important for pages that check authentication dynamically
+  if (user && !pathname.startsWith('/_next') && !pathname.startsWith('/api/auth')) {
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private')
+    response.headers.set('Pragma', 'no-cache')
+    response.headers.set('Expires', '0')
   }
 
   return response

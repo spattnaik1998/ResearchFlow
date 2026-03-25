@@ -77,32 +77,71 @@ export default function ProfilePage() {
   async function handleLogout() {
     console.log('[Logout] Starting logout process');
     try {
-      const supabase = createSupabaseClient();
-      const { error } = await supabase.auth.signOut();
+      // Step 1: Clear all auth-related localStorage keys immediately
+      // This prevents re-hydration of stale auth state
+      console.log('[Logout] Clearing localStorage');
+      localStorage.removeItem('researchflow_last_user_id');
+      localStorage.removeItem('auth-store'); // Zustand persist key
 
-      if (error) {
-        console.warn('[Logout] signOut returned error:', error);
-        // Even if signOut fails on server, we'll still clear local state
-        // This prevents user being stuck on the page
-      } else {
-        console.log('[Logout] signOut succeeded');
+      // Step 2: Clear all workspace-related localStorage
+      // Pattern: voicesearch_history_${userId}_${workspaceId}
+      const allKeys = Object.keys(localStorage);
+      for (const key of allKeys) {
+        if (key.startsWith('voicesearch_history_')) {
+          localStorage.removeItem(key);
+        }
       }
-    } catch (error) {
-      console.error('[Logout] Exception during signOut:', error);
-      // Continue with logout even if there's an exception
-    } finally {
-      // Clear auth store to remove user from client-side state
+
+      // Step 3: Clear sessionStorage to remove any session tokens
+      console.log('[Logout] Clearing sessionStorage');
+      sessionStorage.clear();
+
+      // Step 4: Clear auth store to remove user from client-side state
       console.log('[Logout] Clearing auth store');
       logout();
 
-      // Hard navigation so middleware re-evaluates with cleared session cookies.
-      // router.push() is client-side and the middleware may still see a valid
-      // cookie in the same request cycle, redirecting back to /app.
-      // Add a small delay to ensure logout() has propagated
+      // Step 5: Call server-side logout endpoint to invalidate session cookies
+      console.log('[Logout] Calling server logout endpoint');
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include', // Include cookies so Supabase can clear them
+        });
+      } catch (error) {
+        console.warn('[Logout] Server logout failed:', error);
+        // Continue anyway - local cleanup is complete
+      }
+
+      // Step 6: Clear any Supabase client-side cache
+      // Supabase stores auth state in memory, so creating a new client
+      // won't help, but we can try to clear it explicitly
+      const supabase = createSupabaseClient();
+      try {
+        // Attempt to clear client session
+        const { error } = await supabase.auth.signOut({ scope: 'global' });
+        if (error) {
+          console.warn('[Logout] Client signOut returned error:', error);
+        } else {
+          console.log('[Logout] Client signOut succeeded');
+        }
+      } catch (error) {
+        console.warn('[Logout] Client signOut exception:', error);
+      }
+
+      // Step 7: Hard navigation to login
+      // Use hard navigation so middleware re-evaluates with cleared session state
+      // Add small delay to ensure all async operations complete
       setTimeout(() => {
         console.log('[Logout] Navigating to /auth/login');
-        window.location.href = '/auth/login';
-      }, 100);
+        window.location.href = '/auth/login?logout=true';
+      }, 200);
+    } catch (error) {
+      console.error('[Logout] Exception during logout:', error);
+      // Even on error, attempt to clear state and redirect
+      logout();
+      setTimeout(() => {
+        window.location.href = '/auth/login?error=logout_failed';
+      }, 200);
     }
   }
 

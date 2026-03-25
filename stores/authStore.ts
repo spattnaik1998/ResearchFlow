@@ -39,12 +39,19 @@ export const useAuthStore = create<AuthState>()(
 
       setHydrated: () => set({ hasHydrated: true }),
 
-      logout: () =>
-        set({
+      logout: () => {
+        // Clear localStorage immediately to prevent re-hydration of stale state
+        try {
+          localStorage.removeItem('auth-store');
+        } catch (e) {
+          console.warn('Failed to clear auth-store from localStorage:', e);
+        }
+        return set({
           user: null,
           isAuthenticated: false,
           isLoading: false,
-        }),
+        });
+      },
     }),
     {
       name: 'auth-store',

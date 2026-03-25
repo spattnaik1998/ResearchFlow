@@ -12,6 +12,7 @@ import { createSupabaseClient } from '@/lib/supabase';
 import { migrateUserData, isMigrationComplete, loadCloudDataOnLogin } from '@/lib/migration';
 import { clearAllHistoryKeysForUser } from '@/lib/storage';
 import { createAuthChannel, listenToAuthEvents, broadcastAuthEvent, type AuthChannelMessage } from '@/lib/broadcast-channel';
+import { clearClientSession } from '@/lib/session-cleanup';
 
 export function RootLayoutClient({ children }: { children: React.ReactNode }) {
   const [historyCount, setHistoryCount] = useState(0);
@@ -178,13 +179,17 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = listenToAuthEvents(channel, (message) => {
       if (message.type === 'SIGNED_OUT') {
+        console.log('[RootLayoutClient] Received SIGNED_OUT from another tab');
         // Another tab logged out - sync this tab
         useWorkspaceStore.getState().clearForNewUser();
-        localStorage.removeItem('researchflow_last_user_id');
+        clearClientSession();
         logout();
 
-        // Redirect to login page
-        window.location.href = '/auth/login';
+        // Redirect to login page with logout indicator
+        setTimeout(() => {
+          console.log('[RootLayoutClient] Redirecting to login after cross-tab logout');
+          window.location.href = '/auth/login?logout=true';
+        }, 100);
       }
     });
 

@@ -21,7 +21,7 @@ export function NotesLibrary({ isOpen = true, onClose }: NotesLibraryProps) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { activeWorkspaceId } = useWorkspaceStore();
+  const { activeWorkspaceId, _hasHydrated } = useWorkspaceStore();
   const router = useRouter();
 
   const workspaceId = activeWorkspaceId || '';
@@ -51,10 +51,13 @@ export function NotesLibrary({ isOpen = true, onClose }: NotesLibraryProps) {
   }, [workspaceId]);
 
   useEffect(() => {
-    if (isOpen) {
+    // Wait for Zustand to rehydrate from localStorage before querying.
+    // Without this guard, workspaceId is '' on first render (SSR/hydration gap)
+    // and the notes query returns no results, causing a spurious empty state.
+    if (isOpen && _hasHydrated) {
       loadNotes();
     }
-  }, [activeWorkspaceId, isOpen, loadNotes]);
+  }, [activeWorkspaceId, isOpen, _hasHydrated, loadNotes]);
 
   const handleDeleteNote = async (noteId: string) => {
     try {

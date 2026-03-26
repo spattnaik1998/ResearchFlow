@@ -94,28 +94,33 @@ export default function ProfilePage() {
       // Clear auth store
       logout();
 
-      // Invalidate server-side session cookies
+      // Invalidate server-side session cookies (5s timeout — never block redirect)
       try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 5000);
         await fetch('/api/auth/logout', {
           method: 'POST',
           credentials: 'include',
+          signal: controller.signal,
         });
+        clearTimeout(tid);
       } catch {
         // Continue anyway — local cleanup is already complete
       }
 
-      // Supabase client-side session clear
+      // Supabase client-side session clear (5s timeout — never block redirect)
       const supabase = createSupabaseClient();
       try {
-        await supabase.auth.signOut({ scope: 'global' });
+        await Promise.race([
+          supabase.auth.signOut({ scope: 'global' }),
+          new Promise<void>((resolve) => setTimeout(resolve, 5000)),
+        ]);
       } catch {
         // Non-fatal — session cookies are already cleared server-side
       }
 
       // Hard navigation so middleware re-evaluates with cleared session
-      setTimeout(() => {
-        window.location.href = '/auth/login?logout=true';
-      }, 200);
+      window.location.href = '/auth/login?logout=true';
     } catch (error) {
       console.error('Logout failed:', error);
       logout();

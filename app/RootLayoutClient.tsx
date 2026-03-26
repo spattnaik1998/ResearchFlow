@@ -159,12 +159,15 @@ export function RootLayoutClient({ children }: { children: React.ReactNode }) {
           logout();
 
           // Broadcast logout to other tabs so they also logout
-          const channel = createAuthChannel();
+          const broadcastChannel = createAuthChannel();
           const message: AuthChannelMessage = {
             type: 'SIGNED_OUT',
             timestamp: Date.now(),
           };
-          broadcastAuthEvent(channel, message);
+          broadcastAuthEvent(broadcastChannel, message);
+          // Close the one-shot channel immediately — the persistent listener
+          // channel (created in the separate useEffect below) handles incoming events.
+          broadcastChannel?.close();
         }
       }
     );

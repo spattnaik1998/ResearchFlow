@@ -33,7 +33,7 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
   const [saving, setSaving] = useState(false);
 
   const router = useRouter();
-  const { activeWorkspaceId } = useWorkspaceStore();
+  const { activeWorkspaceId, _hasHydrated } = useWorkspaceStore();
   const { success, error: showError } = useToast();
 
   const workspaceId = activeWorkspaceId || '';
@@ -41,12 +41,14 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
   const loadNote = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await knowledgeDB.getNote(noteId!);
+      // Fetch note and tags in parallel — avoids two sequential round-trips
+      const [data, noteTags] = await Promise.all([
+        knowledgeDB.getNote(noteId!),
+        knowledgeDB.getNoteTags(noteId!),
+      ]);
       setNote(data);
       setTitle(data.title);
       setContent(data.content);
-
-      const noteTags = await knowledgeDB.getNoteTags(noteId!);
       setTags(noteTags);
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to load note');
@@ -159,6 +161,16 @@ export function NoteEditor({ noteId, mode = 'edit' }: NoteEditorProps) {
       setSaving(false);
     }
   };
+
+  // For new notes, block rendering until the workspace store has rehydrated
+  // from localStorage — otherwise workspaceId is '' and the save fails.
+  if (!noteId && !_hasHydrated) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <LoadingSpinner message="Loading workspace..." />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
